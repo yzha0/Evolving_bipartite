@@ -75,6 +75,9 @@ phylogenyY<-rbind(c(1, 0), c(2, 0))
 connectedness <- matrix(0, 1, T)
 connectX <- matrix(0, 1, T)
 connectY <- matrix(0, 1, T)
+
+# creating a list storing interaction matrix at each time stamp
+ts_list<-list()
 ```
 
 ## Simulation Loop
@@ -330,6 +333,9 @@ connectedness[1, n] <- sum(sum(A)) / (NextantsppX * NextantsppY)
 # connectX[1, n] <- mean(rowSums(A)) / NextantsppY
 # connectY[1, n] <- mean(colSums(A)) / NextantsppX
 
+## appending new interaction matrix into the list
+
+ts_list[[n]]<-A
    
    
 }
