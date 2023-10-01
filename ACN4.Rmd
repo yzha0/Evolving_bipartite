@@ -372,7 +372,7 @@ View(A)
 
 ```
 
-## Analyze the bipartite graphs
+## Analyze bipartite graphs at a fixed time
 
 ### First convert adjacency matrix to edgelist
 ```{r}
@@ -433,7 +433,7 @@ plot(1:T, xall[1:T,1], type="p", cex=0.5, ylab="Mean Trait x", main="Evolution o
 plot(1:T, yall[1:T,1], type="p", cex=0.5, ylab="Mean Trait y", main="Evolution of Species Trait Y")
 
 
-# Display the adjacency matrix of interactions
+# Display the adjacency matrix of interactions(this is t=400)
 x.at<-seq(0, NsppX+1)
 y.at<-seq(0, NsppY+1)
 image(t(A[1:NsppX, 1:NsppY]), axes=FALSE, main="Adjacency Matrix of Interactions", xlab="Pollinator species", ylab="Plant species")
@@ -448,7 +448,25 @@ hist(rowSums(A[1:NsppX, 1:NsppY]), main="Distribution of Connections per Pollina
 plot(1:T, connectedness, type="l", ylab="Connectedness", xlab="Iterations", main="Connectedness Over Time")
 
 ```
+## time-evolving networks
+```{r}
+#largest dimension
+max_dim<-unlist(lapply(ts_list, dim))[c(n*2-1, n*2)]
+#building a multidimensional array with with incomplete entries
+ts_list_expanded<-list()
+for (i in 1:n) {
+  new_mat<-matrix(NA,nrow=max_dim[1],ncol=max_dim[2])
+  new_mat[1:nrow(ts_list[[i]]), 1:ncol(ts_list[[i]])] <- ts_list[[i]]
+  ts_list_expanded[[i]]<-new_mat
+}
+ts_multi_A<-array(c(unlist(ts_list_expanded)), dim = c(21, 7, n))
+```
 
+
+## ...
+```{r}
+
+```
 
 
 
