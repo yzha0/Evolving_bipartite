@@ -320,7 +320,7 @@ if (NsppX == 0 && NsppY == 0) {
 }
 
 # Update interaction matrix
-A <- Anew
+A <- Anew[XextantA, YextantA]
 
 # Update traits for next generation
 x[1, ] <- x[2, ]
@@ -367,6 +367,12 @@ for (i in 1:length(A[,1])) {
 }
 row.names(A)<-rname_vec
 
+cname_vec<-rep(0, length(A[1,]))
+for (i in 1:length(A[1,])) {
+  cname_vec[i]<-paste("V",i,sep = "")
+}
+row.names(A)<-rname_vec
+colnames(A)<-cname_vec
 # view the new matrix
 View(A)
 
@@ -377,7 +383,7 @@ View(A)
 ### First convert adjacency matrix to edgelist
 ```{r}
 #
-polli.g<- graph.incidence(A, weighted = TRUE)
+polli.g<- graph.incidence(as.matrix(A), weighted = TRUE)
 polli_el <- get.edgelist(polli.g)
 View(polli_el)
 ```
