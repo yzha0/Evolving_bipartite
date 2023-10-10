@@ -29,17 +29,18 @@ c <- 0.99  # proportion of connection probability based on historical associatio
 
 # Trait values
 # preallocate matrices
-x<-matrix(0, nrow=2, ncol=maxNX)
-xall <- matrix(0, nrow=endT, ncol=maxNX)
-y<-matrix(0, nrow = 2, ncol = maxNY)
-yall <- matrix(0, nrow=endT, ncol=maxNY)
+# karray prevents some funky subsetting by R down the road 
+x<-karray(0, c(2, maxNX))
+xall <- karray(0, c(endT, maxNX))
+y<-karray(0, c(2, maxNY))
+yall <- karray(0, c(endT, maxNY))
 
 # Initial trait values
 x[1,1] <- 0
 y[1,1] <- 0
 
 # Interaction matrix (1 if species i and j interact, 0 otherwise)
-A <- matrix(0, nrow=1, ncol=1)
+A <- karray(0, c(1, 1))
 # We start with one species each that are connected to each other
 A[1,1] <- 1
 
@@ -64,10 +65,10 @@ NextantsppY <- length(iYextant)
 #   / \     \
 #  1   3     2 at generation 150
 
-phylogenyX<-matrix(0, nrow = 2, ncol = NsppX)
-phylogenyX<-rbind(c(1, 0), c(2, 0))
-phylogenyY<-matrix(0, nrow = 2, ncol = NsppY)
-phylogenyY<-rbind(c(1, 0), c(2, 0))
+#phylogenyX<-matrix(0, nrow = 2, ncol = NsppX)
+#phylogenyX<-rbind(c(1, 0), c(2, 0))
+#phylogenyY<-matrix(0, nrow = 2, ncol = NsppY)
+#phylogenyY<-rbind(c(1, 0), c(2, 0))
 
 
 connectedness <- matrix(0, 1, endT)
@@ -86,8 +87,11 @@ for (n in 1:endT) {
   
   #average trait value of the interactors with any
   #particular species
-  AvgXconnection<-A %*% (as.matrix(y[1, iYextant]))/as.matrix(rowSums(A))
-  AvgYconnection<-t(A) %*% as.matrix(x[1, iXextant])/as.matrix(colSums(A))
+  Yextant <- karray(y[1, iYextant], c(1,NextantsppY)) #trait values of extant only
+  AvgXconnection<-A %*% t(Yextant)/rowSums(A)
+  
+  Xextant <- karray(x[1, iXextant], c(NextantsppX,1))
+  AvgYconnection<-t(A) %*% Xextant/rowSums(t(A))
 
   Aold <- A
   
@@ -147,6 +151,7 @@ for (n in 1:endT) {
       # add new spp trait
       x[2, NsppX] <- x[1, i] + rnorm(1) * xis
       
+      #add a new row for the new X species
       A <- rbind(A, A[m, ])  # inherits parental connections
       w <- rbind(w, w[m, ])  # and those connections inherit the same fitness value, at least initially
       
@@ -196,6 +201,7 @@ for (n in 1:endT) {
       # add new spp trait
       y[2, NsppY] <- y[1, i] + rnorm(1) * xis
       
+      #add a column for the new y spp
       A <- cbind(A, A[, m])  # inherits parental connections
       w <- cbind(w, w[, m])  # and those connections inherit the same fitness value, at least initially
       
@@ -230,7 +236,7 @@ for (n in 1:endT) {
   } else {
       iYextantnew<-iYextant
       }
-  Anew <- matrix(0, length(iXextantnew),length(iYextantnew))
+  Anew <- karray(0, c(length(iXextantnew),length(iYextantnew)))
   
   for (i in iXextantnew) {
     im<-im+1
@@ -247,8 +253,10 @@ for (n in 1:endT) {
   
   # Identify extant species with connections
   XextantA <- which(rowSums(Anew) != 0)
-  iXextant <- iXextantnew[XextantA]
+  Xextant <- iXextantnew[XextantA]
   NextantsppX <- length(iXextant)
+  
+  
   
   YextantA <- which(colSums(Anew) != 0)
   iYextant <- iYextantnew[YextantA]
@@ -272,7 +280,7 @@ for (n in 1:endT) {
   }
   
   # Update interaction matrix
-  A <- as.matrix(Anew[XextantA, YextantA])
+  A <- karray(Anew[XextantA, YextantA], c(NextantsppX, NextantsppY))
   
   # Update traits for next generation
   x[1, ] <- x[2, ]
