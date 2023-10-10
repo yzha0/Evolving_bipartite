@@ -112,7 +112,7 @@ NextantsppY = length(iYextant);
 %To keep track of phylogeny, we use an indexing pointer-like system  The
 %first row holds the tree topology and the second row holds the metric of
 %the tree (what generation speciation occured)
-% For example, [1 3 2; 0 150 150] means
+% For example, [1 3 2; 0 150 100] means
 %       1     at start       
 %      / \
 %     /   \
