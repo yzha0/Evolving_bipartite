@@ -9,6 +9,24 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r Packages, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Store string containing all required packages
+my_packages <- c('keep','bipartite', 'RColorBrewer', 'igraph')
+
+# Store all installed packages
+ya_loaded <- (.packages())
+
+# Check whether required packages are already installed and grab only those that still need installation
+need_load<-my_packages[!(my_packages %in% ya_loaded)]
+
+# Load required packages
+lapply(need_load, require, character.only = TRUE)
+```
+
+# Stochastic Asymmetric Co-evolving Network Model
+
 ## Parameters set-up
 ```{r}
 # Clearing the workspace (equivalent to MATLAB's "clear all")
@@ -38,10 +56,11 @@ c <- 0.99  # proportion of connection probability based on historical associatio
 # Starting with a single mutualism
 
 # Trait values
-x<-matrix(0, nrow=2, ncol=maxNX)
-xall <- matrix(0, nrow=T, ncol=maxNX)
-y<-matrix(0, nrow = 2, ncol = maxNY)
-yall <- matrix(0, nrow=T, ncol=maxNY)
+x<-karray(0, c(2, maxNX))
+xall <- karray(0, c(T, maxNX))
+y<-karray(0, c(2, maxNY))
+yall <- karray(0, c(T, maxNY))
+
 
 # Initial trait values
 x[1,1] <- 0
@@ -84,257 +103,223 @@ ts_list<-list()
 ```{r}
 # Main simulation loop
 for (n in 1:T) {
-    # Drift in traits for existing species
-    xall[n,] <- x[1, ] 
-    yall[n,] <- y[1, ] 
+  
+  # Drift in traits for existing species
+  xall[n,] <- x[1, ] 
+  yall[n,] <- y[1, ] 
     
-    #average trait value of the interactors with any
-    #particular species
-    if(is.matrix(A)){
-      AvgXconnection<-A %*% as.matrix(y[1, iYextant])/as.matrix(rowSums(A))
-      AvgYconnection<-t(A) %*% as.matrix(x[1, iXextant])/as.matrix(colSums(A))
-    }
-    
-    else{
-      AvgXconnection <- A * y[1, iYextant]
-      AvgYconnection <- A * x[1, iXextant]
-    }
-    Aold <- A
-    
-    muI<-AvgXconnection
-    muJ<-AvgYconnection
-    
-    w<-A
-    for (i in 1:NextantsppX) {
-    if(is.matrix(A)){
-    nI <- sum(A[i,])
-    }
-    else{nI <-sum(A)}
-    for (j in 1:NextantsppY) {
-      if(is.matrix(A)){
-        mJ <- sum(A[,j])
-      }
-      else{mJ<- sum(A)}
+  Yextant <- karray(y[1, iYextant], c(1,NextantsppY)) #trait values of extant only
+  AvgXconnection<-A %*% t(Yextant)/rowSums(A)
+  muI <- karray(AvgXconnection, c(NextantsppX,1))
+  
+  Xextant <- karray(x[1, iXextant], c(NextantsppX,1))
+  AvgYconnection<-t(A) %*% Xextant/rowSums(t(A))
+  muJ <- karray(AvgYconnection, c(NextantsppY,1))
+
+  #updates
+  Aold <- A
+  w<-A
+  
+  for (i in 1:NextantsppX) {nI <- sum(A[i,])} #could prob use an apply
+  for (j in 1:NextantsppY) {mJ <- sum(A[,j])}
+  
+  numerator1 <- (theta + v) / (mJ * sqrt(theta^2 + theta * v + v^2))
+  numerator2 <- (theta + v) / (nI * sqrt(theta^2 + theta * v + v^2))
       
-    numerator1 <- (theta + v) / (mJ * sqrt(theta^2 + theta * v + v^2))
-    numerator2 <- (theta + v) / (nI * sqrt(theta^2 + theta * v + v^2))
-        
-    expTerm1 <- -1 * (v * (x[1, iXextant[i]] - muJ[j]) * (x[1, iXextant[i]] + muJ[j] - 2 * muI[i]) + theta * (muI[i] - muJ[j]) * (muI[i] + muJ[j] - 2 * x[1, iXextant[i]]))
-    expTerm2 <- -1 * (v * (y[1, iYextant[j]] - muI[i]) * (y[1, iYextant[j]] + muI[i] - 2 * muJ[j]) + theta * (muJ[j] - muI[i]) * (muI[i] + muJ[j] - 2 * y[1, iYextant[j]]))
-        
-    denominator <- theta^2 + theta * v + v^2
-        
-    #w[i,j] <- numerator1 * exp(expTerm1 / denominator)
-    if(is.matrix(w)){
-    w[i,j] <- numerator2 * exp(expTerm2 / denominator)
-        }
-    else{w<-numerator2 * exp(expTerm2 / denominator)}
-      }
-  }
-    
-    
-
-m<-0
-NoldsppX <- NsppX
-
-for (i in iXextant) {  # only look at the extant species
-                       # i is the index of each of the extant of individuals/species
-                       # recall we need to put NaN where spec have gone extinct, not
-                       # delete them completely, so this limits us to only calling extant
-                       # species to speciate and evolve
-  
-  m <- m + 1  # counts which species we are on to use as an index for iXextant, A
-              # where i acts as an index for x, i.e iXextant[m] = i
-
-  # variation from one generation to the next
-  if(is.matrix(Aold)){
-  nI <- sum(Aold[m,])
-  }
-  else{nI<-sum(Aold)}
-  thetaI <- thetay / nI  # CLT
-  
-  alpha <- (thetaI^2 + thetaI*v + v^2) / (thetaI^2 + thetaI*v + v^2 + thetax*v)
-  gamma1 <- thetaI * thetax / (thetaI^2 + thetaI*v + v^2 + thetax*v)
-  
-  if(is.matrix(Aold)){
-  non_zero_indices <- which(Aold[m,] != 0)
-  x[2, i] <- alpha * x[1, i] + (1 - alpha) * AvgXconnection[m] + (AvgXconnection[m] - mean(AvgYconnection[non_zero_indices])) * gamma1 + rnorm(1) * xix
-  }
-  else{
-     x[2, i] <- alpha * x[1, i] + (1 - alpha) * AvgXconnection[m] + (AvgXconnection[m] - mean(AvgYconnection)) * gamma1 + rnorm(1) * xix
-  }
-
-
-
-
-# speciation event - which occurs with probability pX
-  if (runif(1) < pX) {
-    NsppX <- NsppX + 1  # keeps track of how many spp there are now
-    
-    if (NsppX > maxNX) {
-        cat("error, the number of species type X is greater than the number allocated\n")
-        toobig <- toobig + 1
-        break
-    }
-    
-    # add new spp trait
-    x[2, NsppX] <- x[1, i] + rnorm(1) * xis
-    if(is.matrix(A)){
-    A <- rbind(A, A[m, ])  # inherits parental connections
-    w <- rbind(w, w[m, ])  # and those connections inherit the same fitness value, at least initially
-    }
-    # else{
-    #    A<-rbind(A, A[m])
-    #    w<-rbind(w, w[m])
-    #  }
-    # now we make sure that we know that this new species is a sister species to species i
-    boo <- which(phylogenyX[1, ] == i)
-  if((NsppX-1)>=(boo[1]+1)){
-    for (j in (NsppX-1):(boo[1]+1)) {
-        phylogenyX <- cbind(phylogenyX,phylogenyX[, j])
-    }
-  }
-    if((boo[1]+1)<=dim(phylogenyX)[2]){
-    phylogenyX[, boo[1]+1] <- c(NsppX, n)
-    }
-    else{phylogenyX<-cbind(phylogenyX, c(NsppX, n))}
-}
-
-    
-}   
-
-   m <- 0
-   NoldsppY <- NsppY
-
-for (i in iYextant) {
-
-  m <- m + 1; #counts which species we are on
-  if(is.matrix(Aold)){
-  mJ<- sum(Aold[,m])
-  }
-  else{mJ<-sum(Aold)}
-  thetaJ <- thetax / mJ  # CLT
-  
-  beta <- (thetaJ^2 + thetaJ*v + v^2) / (thetaJ^2 + thetaJ*v + v^2 + thetay*v)
-  gamma2 <- thetaJ * thetax / (thetaJ^2 + thetaJ*v + v^2 + thetay*v)
-  
-  if(is.matrix(Aold)){
-  non_zero_indices <- which(Aold[,m] != 0)
-    y[2, i] <- beta * y[1, i] + (1 - beta) * AvgYconnection[m] + (AvgYconnection[m] - mean(AvgXconnection[non_zero_indices])) * gamma2 + rnorm(1) * xix
-  }
-  else{
-    y[2, i] <- beta * y[1, i] + (1 - beta) * AvgYconnection[m] + (AvgYconnection[m] - mean(AvgXconnection)) * gamma2 + rnorm(1) * xix
-  }
-
-
-
-# speciation event - which occurs with probability pY
-  if (runif(1) < pY) {
-    NsppY <- NsppY + 1  # keeps track of how many spp there are now
-    
-    if (NsppY > maxNY) {
-        cat("error, the number of species type X is greater than the number allocated\n")
-        toobig <- toobig + 1
-        break
-    }
-    
-    # add new spp trait
-    y[2, NsppY] <- y[1, i] + rnorm(1) * xis
-    if(is.matrix(A)){
-    A <- cbind(A, A[, m])  # inherits parental connections
-    w <- cbind(w, w[, m])  # and those connections inherit the same fitness value, at least initially
-    }
-    # else{
-    #    A<-rbind(A, A[m])
-    #    w<-rbind(w, w[m])
-    #  }
-    # now we make sure that we know that this new species is a sister species to species i
-    boo <- which(phylogenyY[1, ] == i)
-  if((NsppY-1)>=boo[1]){
-    for (j in (NsppY-1):boo[1]) {
-        phylogenyY <- cbind(phylogenyY,phylogenyY[, j])
-          }
-    }
-    if((boo[1]+1)<=dim(phylogenyY)[2]){
-    phylogenyY[, boo[1]+1] <- c(NsppY, n)
-    }
-    else{phylogenyY<-cbind(phylogenyY, c(NsppY, n))}
-}
-
-}
+  expTerm1 <- -1 * (v * (x[1, iXextant[i]] - muJ[j]) * (x[1, iXextant[i]] + muJ[j] - 2 * muI[i]) + theta * (muI[i] - muJ[j]) * (muI[i] + muJ[j] - 2 * x[1, iXextant[i]]))
+  expTerm2 <- -1 * (v * (y[1, iYextant[j]] - muI[i]) * (y[1, iYextant[j]] + muI[i] - 2 * muJ[j]) + theta * (muJ[j] - muI[i]) * (muI[i] + muJ[j] - 2 * y[1, iYextant[j]]))
+      
+  denominator <- theta^2 + theta * v + v^2
+      
+  #w[i,j] <- numerator1 * exp(expTerm1 / denominator)
+  w[i,j] <- numerator2 * exp(expTerm2 / denominator)
    
-#interaction matrix - these are in the order in which spp appeared, but not including extinct species 
-count<-1
-im<-0
-jm<-0
+  m<-0
+  NoldsppX <- NsppX
+  
+  # only look at the extant species
+  # i is the index of each of the extant of individuals/species
+  # recall we need to put NaN where spec have gone extinct, not
+  # delete them completely, so this limits us to only calling extant
+  # species to speciate and evolve
+  for (i in iXextant) {
+    m <- m + 1  # counts which species we are on to use as an index for iXextant, A
+    # where i acts as an index for x, i.e iXextant[m] = i
+    
+    # variation from one generation to the next
+    nI <- sum(Aold[m,])
+    
+    thetaI <- thetay / nI  # CLT
+    
+    alpha <- (thetaI^2 + thetaI*v + v^2) / (thetaI^2 + thetaI*v + v^2 + thetax*v)
+    gamma1 <- thetaI * thetax / (thetaI^2 + thetaI*v + v^2 + thetax*v)
+    
+    non_zero_indices <- which(Aold[m,] != 0)
+    #AvgXconnection is muI and AvgYconnection is muJ
+    x[2, i] <- alpha * x[1, i] + (1 - alpha) * muI[m] + (muI[m] - mean(muJ[non_zero_indices])) * gamma1 + rnorm(1) * xix
+    
+    
+    
+    # speciation event - which occurs with probability pX
+    if (runif(1) < pX) {
+      NsppX <- NsppX + 1  # keeps track of how many spp there are now
+      
+      if (NsppX > maxNX) {
+        cat("error, the number of species type X is greater than the number allocated\n")
+        toobig <- toobig + 1
+        break
+      }
+      
+      # add new spp trait
+      x[2, NsppX] <- x[1, i] + rnorm(1) * xis
+      
+      #add a new row for the new X species
+      A <- rbind(A, A[m, ])  # inherits parental connections
+      w <- rbind(w, w[m, ])  # and those connections inherit the same fitness value, at least initially
+      
+      
+      # now we make sure that we know that this new species is a sister species to species i
+      #boo <- which(phylogenyX[1, ] == i)
+      #if((NsppX-1)>=(boo[1]+1)){
+      #  for (j in seq((NsppX-1),(boo[1]+1),-1)) {
+      #    phylogenyX <- cbind(phylogenyX,phylogenyX[, j])
+      #  }
+      #}
+      #if((boo[1]+1)<=dim(phylogenyX)[2]){
+      #  phylogenyX[, boo[1]+1] <- c(NsppX, n)
+      #} else {phylogenyX<-cbind(phylogenyX, c(NsppX, n))}
+    }
+    
+    
+  }   
+  
+  m <- 0
+  NoldsppY <- NsppY
+  
+  for (i in iYextant) {
+    
+    m <- m + 1; #counts which species we are on
+    mJ<- sum(Aold[,m])
 
-if((NoldsppX+1)<=NsppX){
-iXextantnew <- c(iXextant,(NoldsppX+1):NsppX)#give the linages of X that are extant
-} 
-else{iXextantnew<-iXextant}
-if((NoldsppY+1)<=NsppY){
-iYextantnew <- c(iYextant,(NoldsppY+1):NsppY) #give the linages of Y that are extant
-}
-else{iYextantnew<-iYextant}
-Anew <- matrix(0, length(iXextantnew),length(iYextantnew))
-
-for (i in iXextantnew) {
-  im<-im+1
-  for (j in iYextantnew) {
-  jm<-jm+1
-   if(is.matrix(A)){
-  matching <- c*A[im,jm]+ (1-c)*w[im,jm]
+    thetaJ <- thetax / mJ  # CLT
+    
+    beta <- (thetaJ^2 + thetaJ*v + v^2) / (thetaJ^2 + thetaJ*v + v^2 + thetay*v)
+    gamma2 <- thetaJ * thetax / (thetaJ^2 + thetaJ*v + v^2 + thetay*v)
+    
+    non_zero_indices <- which(Aold[,m] != 0)
+    #AvgXconnection is muI and AvgYconnection is muJ
+    y[2, i] <- beta * y[1, i] + (1 - beta) * muJ[m] + (muJ[m] - mean(muI[non_zero_indices])) * gamma2 + rnorm(1) * xix
+    
+    
+    # speciation event - which occurs with probability pY
+    if (runif(1) < pY) {
+      NsppY <- NsppY + 1  # keeps track of how many spp there are now
+      
+      if (NsppY > maxNY) {
+        cat("error, the number of species type Y is greater than the number allocated\n")
+        toobig <- toobig + 1
+        break
+      }
+      
+      # add new spp trait
+      y[2, NsppY] <- y[1, i] + rnorm(1) * xis
+      
+      #add a column for the new y spp
+      A <- cbind(A, A[, m])  # inherits parental connections
+      w <- cbind(w, w[, m])  # and those connections inherit the same fitness value, at least initially
+      
+      # now we make sure that we know that this new species is a sister species to species i
+     # boo <- which(phylogenyY[1, ] == i)
+      #if((NsppY-1)>=boo[1]){
+      #  for (j in (NsppY-1):boo[1]) {
+      #    phylogenyY <- cbind(phylogenyY,phylogenyY[, j])
+      #  }
+      #}
+      #if((boo[1]+1)<=dim(phylogenyY)[2]){
+      #  phylogenyY[, boo[1]+1] <- c(NsppY, n)
+      #} else {phylogenyY<-cbind(phylogenyY, c(NsppY, n))}
+    }
+    
   }
-   else{
-  matching <- c*A+ (1-c)*w
-  }
-   if(matching>runif(1)){
-    Anew[im, jm]<-1
-  }
-  }
+  
+  #interaction matrix - these are in the order in which spp appeared, but not including extinct species 
+  
+  if((NoldsppX+1)<=NsppX){
+    iXextantnew <- c(iXextant,(NoldsppX+1):NsppX)#give the lineages of X that are extant
+    } else {
+    iXextantnew<-iXextant
+    }
+  
+  
+  if((NoldsppY+1)<=NsppY){
+    iYextantnew <- c(iYextant,(NoldsppY+1):NsppY) #give the linages of Y that are extant
+  } else {
+      iYextantnew<-iYextant
+      }
+  
+  Anew <- karray(0, c(length(iXextantnew),length(iYextantnew)))
+  
+  #count<-1
+  im<-0
   jm<-0
-}
-
-# Identify extant species with connections
-XextantA <- which(rowSums(Anew) != 0)
-iXextant <- iXextantnew[XextantA]
-NextantsppX <- length(iXextant)
-
-YextantA <- which(colSums(Anew) != 0)
-iYextant <- iYextantnew[YextantA]
-NextantsppY <- length(iYextant)
-
-# Check for extinction of species
-if (NsppX == 0 && NsppY == 0) {
+  
+  for (i in iXextantnew) {
+    im<-im+1
+    for (j in iYextantnew) {
+      jm<-jm+1
+      matching <- c*A[im,jm]+ (1-c)*w[im,jm]
+      
+      if(matching>runif(1)){
+        Anew[im, jm]<-1
+      }
+    }
+    jm<-0
+  }
+  
+  # Identify extant species with connections
+  #we now want to eliminate all species that have no connections to
+  #anyone else
+  #To look for rows of 0 do a sum(A') then a find
+  XextantA <- which(rowSums(Anew) != 0) #these are all the x species that have 
+  # at least one connection maintained to someone else
+  iXextant <- iXextantnew[XextantA]
+  NextantsppX <- length(iXextant)
+  
+  
+  YextantA <- which(colSums(Anew) != 0)
+  iYextant <- iYextantnew[YextantA]
+  NextantsppY <- length(iYextant)
+  
+  # Check for extinction of species
+  if (NsppX == 0 && NsppY == 0) {
     cat("extinction of both species\n")
     extinctions <- extinctions + 1
-    next # replaces MATLAB's break in this context
-} else if (NsppX == 0) {
+    break # replaces MATLAB's break in this context
+    # note - next will skip an interation
+    # we want break because it will stop the whole loop
+  } else if (NsppX == 0) {
     cat("extinction of species X\n")
     extinctions <- extinctions + 1
-    next
-} else if (NsppY == 0) {
+    break
+  } else if (NsppY == 0) {
     cat("extinction of species Y\n")
     extinctions <- extinctions + 1
-    next
-}
-
-# Update interaction matrix
-A <- Anew[XextantA, YextantA]
-
-# Update traits for next generation
-x[1, ] <- x[2, ]
-x[2, ] <- rep(NaN, maxNX)
-y[1, ] <- y[2, ]
-y[2, ] <- rep(NaN, maxNY)
-
-# Calculate connectedness
-connectedness[1, n] <- sum(sum(A)) / (NextantsppX * NextantsppY)
-# connectX[1, n] <- mean(rowSums(A)) / NextantsppY
-# connectY[1, n] <- mean(colSums(A)) / NextantsppX
+    break
+  }
+  
+  # Update interaction matrix
+  A <- karray(Anew[XextantA, YextantA], c(NextantsppX, NextantsppY))
+  
+  # Update traits for next generation
+  x[1, ] <- x[2, ]
+  x[2, ] <- rep(NaN, maxNX)
+  y[1, ] <- y[2, ]
+  y[2, ] <- rep(NaN, maxNY)
+  
+  # Calculate connectedness
+  connectedness[1, n] <- sum(sum(A)) / (NextantsppX * NextantsppY)
 
 ## appending new interaction matrix into the list
-
 ts_list[[n]]<-A
    
    
@@ -342,22 +327,11 @@ ts_list[[n]]<-A
 ```
 
 
-```{r Packages, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
 
-# Store string containing all required packages
-my_packages <- c('bipartite', 'RColorBrewer', 'igraph')
 
-# Store all installed packages
-ya_loaded <- (.packages())
 
-# Check whether required packages are already installed and grab only those that still need installation
-need_load<-my_packages[!(my_packages %in% ya_loaded)]
 
-# Load required packages
-lapply(need_load, require, character.only = TRUE)
-```
-
+## Analyze bipartite graphs at the last time stamp
 
 ``` {r}
 # assign plants' name to the plants
@@ -377,8 +351,6 @@ colnames(A)<-cname_vec
 View(A)
 
 ```
-
-## Analyze bipartite graphs at a fixed time
 
 ### First convert adjacency matrix to edgelist
 ```{r}
@@ -465,7 +437,7 @@ for (i in 1:n) {
   new_mat[1:nrow(ts_list[[i]]), 1:ncol(ts_list[[i]])] <- ts_list[[i]]
   ts_list_expanded[[i]]<-new_mat
 }
-ts_multi_A<-array(c(unlist(ts_list_expanded)), dim = c(21, 7, n))
+ts_multi_A<-array(c(unlist(ts_list_expanded)), dim = c(max_dim[1], max_dim[2], n))
 ```
 
 
