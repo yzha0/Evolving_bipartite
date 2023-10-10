@@ -2,6 +2,7 @@
 #author: "Eric Zhao and Carrie Diaz Eaton"
 #date: "2023-10-09"
 # This is an R version, translated from MATLAB
+# CDE debugged code on 10-10-23, using keep package
 
 ## Parameters set-up
 
@@ -93,16 +94,16 @@ for (n in 1:endT) {
   #particular species
   Yextant <- karray(y[1, iYextant], c(1,NextantsppY)) #trait values of extant only
   AvgXconnection<-A %*% t(Yextant)/rowSums(A)
+  muI <- karray(AvgXconnection, c(NextantsppX,1))
   
   Xextant <- karray(x[1, iXextant], c(NextantsppX,1))
   AvgYconnection<-t(A) %*% Xextant/rowSums(t(A))
+  muJ <- karray(AvgYconnection, c(NextantsppY,1))
 
+  #updates
   Aold <- A
-  
-  muI<-AvgXconnection
-  muJ<-AvgYconnection
-  
   w<-A
+  
   for (i in 1:NextantsppX) {nI <- sum(A[i,])} #could prob use an apply
   for (j in 1:NextantsppY) {mJ <- sum(A[,j])}
   
@@ -138,7 +139,8 @@ for (n in 1:endT) {
     gamma1 <- thetaI * thetax / (thetaI^2 + thetaI*v + v^2 + thetax*v)
     
     non_zero_indices <- which(Aold[m,] != 0)
-    x[2, i] <- alpha * x[1, i] + (1 - alpha) * AvgXconnection[m] + (AvgXconnection[m] - mean(AvgYconnection[non_zero_indices])) * gamma1 + rnorm(1) * xix
+    #AvgXconnection is muI and AvgYconnection is muJ
+    x[2, i] <- alpha * x[1, i] + (1 - alpha) * muI[m] + (muI[m] - mean(muJ[non_zero_indices])) * gamma1 + rnorm(1) * xix
     
     
     
@@ -189,7 +191,8 @@ for (n in 1:endT) {
     gamma2 <- thetaJ * thetax / (thetaJ^2 + thetaJ*v + v^2 + thetay*v)
     
     non_zero_indices <- which(Aold[,m] != 0)
-    y[2, i] <- beta * y[1, i] + (1 - beta) * AvgYconnection[m] + (AvgYconnection[m] - mean(AvgXconnection[non_zero_indices])) * gamma2 + rnorm(1) * xix
+    #AvgXconnection is muI and AvgYconnection is muJ
+    y[2, i] <- beta * y[1, i] + (1 - beta) * muJ[m] + (muJ[m] - mean(muI[non_zero_indices])) * gamma2 + rnorm(1) * xix
     
     
     # speciation event - which occurs with probability pY
@@ -224,9 +227,6 @@ for (n in 1:endT) {
   }
   
   #interaction matrix - these are in the order in which spp appeared, but not including extinct species 
-  count<-1
-  im<-0
-  jm<-0
   
   if((NoldsppX+1)<=NsppX){
     iXextantnew <- c(iXextant,(NoldsppX+1):NsppX)#give the lineages of X that are extant
@@ -240,7 +240,12 @@ for (n in 1:endT) {
   } else {
       iYextantnew<-iYextant
       }
+  
   Anew <- karray(0, c(length(iXextantnew),length(iYextantnew)))
+  
+  #count<-1
+  im<-0
+  jm<-0
   
   for (i in iXextantnew) {
     im<-im+1
@@ -256,10 +261,13 @@ for (n in 1:endT) {
   }
   
   # Identify extant species with connections
-  XextantA <- which(rowSums(Anew) != 0)
-  Xextant <- iXextantnew[XextantA]
+  #we now want to eliminate all species that have no connections to
+  #anyone else
+  #To look for rows of 0 do a sum(A') then a find
+  XextantA <- which(rowSums(Anew) != 0) #these are all the x species that have 
+  # at least one connection maintained to someone else
+  iXextant <- iXextantnew[XextantA]
   NextantsppX <- length(iXextant)
-  
   
   
   YextantA <- which(colSums(Anew) != 0)
