@@ -8,6 +8,10 @@
 # Clearing the workspace (equivalent to MATLAB's "clear all")
 rm(list=ls())
 
+#packages
+#install.packages("keep")
+library(keep)
+
 # Setting up parameters 
 endT <- 400  # stop time T - internally T is TRUE in R, need to use alternate
 pX <- 0.01  # probability of speciation for X species (e.g., plant)
