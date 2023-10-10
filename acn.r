@@ -1,12 +1,15 @@
-#This is the R version of the ACN4.Rmd
-# Original Code authored in Matlab by CDE
-# The Rmd is an adaption to R by YZ
-# Date - 9/28
+#title: "ACN4"
+#author: "Eric Zhao and Carrie Diaz Eaton"
+#date: "2023-10-09"
+# This is an R version, translated from MATLAB
+
+## Parameters set-up
+
 # Clearing the workspace (equivalent to MATLAB's "clear all")
 rm(list=ls())
 
-# Setting up parameters (translated from MATLAB to R)
-T <- 400  # stop time T
+# Setting up parameters 
+endT <- 400  # stop time T - internally T is TRUE in R, need to use alternate
 pX <- 0.01  # probability of speciation for X species (e.g., plant)
 pY <- 0.01  # probability of speciation for Y species (e.g., animal)
 maxNX <- 500  # maximum number of X species for preallocation
@@ -20,11 +23,12 @@ xiy <- 0.1  # standard deviation for drift (Y species)
 xis <- 0.5  # standard deviation for trait value change during speciation
 c <- 0.99  # proportion of connection probability based on historical association
 
-
 # Initializations
 
 # Starting with a single mutualism
+
 # Trait values
+# preallocate matrices
 x<-matrix(0, nrow=2, ncol=maxNX)
 xall <- matrix(0, nrow=T, ncol=maxNX)
 y<-matrix(0, nrow = 2, ncol = maxNY)
@@ -59,15 +63,16 @@ phylogenyY<-matrix(0, nrow = 2, ncol = NsppY)
 phylogenyY<-rbind(c(1, 0), c(2, 0))
 
 
-connectedness <- matrix(0, 1, T)
-connectX <- matrix(0, 1, T)
-connectY <- matrix(0, 1, T)
-```
+connectedness <- matrix(0, 1, endT)
+connectX <- matrix(0, 1, endT)
+connectY <- matrix(0, 1, endT)
+
+# creating a list storing interaction matrix at each time stamp
+ts_list<-list()
 
 ## Simulation Loop
-```{r}
-# Main simulation loop
-for (n in 1:T) {
+
+for (n in 1:endT) {
   # Drift in traits for existing species
   xall[n,] <- x[1, ] 
   yall[n,] <- y[1, ] 
@@ -115,7 +120,6 @@ for (n in 1:T) {
       else{w<-numerator2 * exp(expTerm2 / denominator)}
     }
   }
-  
   
   
   m<-0
@@ -304,7 +308,7 @@ for (n in 1:T) {
   }
   
   # Update interaction matrix
-  A <- Anew
+  A <- as.matrix(Anew[XextantA, YextantA])
   
   # Update traits for next generation
   x[1, ] <- x[2, ]
@@ -316,96 +320,10 @@ for (n in 1:T) {
   connectedness[1, n] <- sum(sum(A)) / (NextantsppX * NextantsppY)
   # connectX[1, n] <- mean(rowSums(A)) / NextantsppY
   # connectY[1, n] <- mean(colSums(A)) / NextantsppX
-  
-  
-  
 }
-```
-
-
-```{r Packages, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-
-# Store string containing all required packages
-my_packages <- c('bipartite', 'RColorBrewer', 'igraph')
-
-# Store all installed packages
-ya_loaded <- (.packages())
-
-# Check whether required packages are already installed and grab only those that still need installation
-need_load<-my_packages[!(my_packages %in% ya_loaded)]
-
-# Load required packages
-lapply(need_load, require, character.only = TRUE)
-```
-
-
-``` {r}
-# assign plants' name to the plants
-rname_vec<-rep(0, length(A[,1]))
-for (i in 1:length(A[,1])) {
-  rname_vec[i]<-paste("PL",i,sep = "")
-}
-row.names(A)<-rname_vec
-
-# view the new matrix
-View(A)
-
-```
-
-## Analyze the bipartite graphs
-
-### First convert adjacency matrix to edgelist
-```{r}
-#
-polli.g<- graph.incidence(A, weighted = TRUE)
-polli_el <- get.edgelist(polli.g)
-View(polli_el)
-```
-
-
-
-### Structuring the bipartite graphs
-```{r}
-# Set the arbitrary char as webID 
-webID <- data.frame(matrix("pp", nrow = nrow(polli_el), ncol = 1))
-polli_new <- cbind(polli_el, webID)
-# assign column names
-colnames(polli_new)<- c("plant", "pollinator", "webID")
-View(polli_new)
-```
-
-
-
-### Plotting network interactions between two node types
-```{r}
-#Generate the network matrix in bipartite
-polli_web<- frame2webs(polli_new, varnames = c("plant", "pollinator", "webID"), type.out = "list", emptylist = TRUE)
-# create a color vector
-cols1<-c( '#8214a0', '#005ac8', '#00a0fa', '#fa78fa', '#14d2dc', '#aa0a3c', '#fa7850', '#0ab45a', '#f0f032', '#a0fa82', '#fae6be') 
-# plot the two-dimensional matrix to a bipartite graph
-plotweb(polli_web$"pp", method='cca', labsize=1,col.interaction=cols1, bor.col.interaction=cols1)                    
-```
-
-
-
-
-### Visualizing the interaction matrix
-This code will visualize the interaction/adjacency matrix. Look up the documentation, play with the command, and then comment within the code block to explain how to use visweb.
-
-``` {r}
-# set the color of levels of interactions
-cols2<-c('white', '#006e82')
-#you can also try other palettes
-#cols2 <- brewer.pal(2, "Reds")
-#visualize the interaction matrix
-visweb(polli_web$'pp', type='nested', labsize=0.3, plotsize=28 ,square="def",def.col=cols2)
-```
-
-
-
+  
+  
 ## Visualization
-```{r}
 
 # Plot the evolution of species traits over time for X and Y
 par(mfrow=c(3,2))  # Set up a 3x2 plotting grid
@@ -414,7 +332,7 @@ plot(1:T, xall[1:T,1], type="p", cex=0.5, ylab="Mean Trait x", main="Evolution o
 plot(1:T, yall[1:T,1], type="p", cex=0.5, ylab="Mean Trait y", main="Evolution of Species Trait Y")
 
 
-# Display the adjacency matrix of interactions
+# Display the adjacency matrix of interactions(this is t=400)
 x.at<-seq(0, NsppX+1)
 y.at<-seq(0, NsppY+1)
 image(t(A[1:NsppX, 1:NsppY]), axes=FALSE, main="Adjacency Matrix of Interactions", xlab="Pollinator species", ylab="Plant species")
