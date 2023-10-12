@@ -14,19 +14,25 @@ rm(list=ls())
 library(keep)
 
 # Setting up parameters 
-endT <- 400  # stop time T - internally T is TRUE in R, need to use alternate
+endT <- 600  # stop time T - internally T is TRUE in R, need to use alternate
 pX <- 0.01  # probability of speciation for X species (e.g., plant)
 pY <- 0.01  # probability of speciation for Y species (e.g., animal)
 maxNX <- 500  # maximum number of X species for preallocation
-maxNY <- 1500  # maximum number of Y species for preallocation
-v <- 1  # tolerance parameter for trait matching
+maxNY <- 500  # maximum number of Y species for preallocation
+v <- .2  # tolerance parameter for trait matching
 theta <- 0.1  # assuming all theta values are the same in the model
 thetax <- theta #phenotypic variance for x,
 thetay <- theta #phenotypic variance for y,
 xix <- 0.1  # standard deviation for drift (X species)
 xiy <- 0.1  # standard deviation for drift (Y species)
 xis <- 0.5  # standard deviation for trait value change during speciation
-c <- 0.99  # proportion of connection probability based on historical association
+c <- 0.8  # proportion of connection probability based on historical association
+
+#debugging and other counts
+extinctions <-0 #count full network extinctions
+Xextinctions<-0 #count X extinctions
+Yextinctions<-0 #count Y extinctions
+toobig <-0
 
 # Initializations
 
@@ -260,10 +266,13 @@ for (n in 1:endT) {
     jm<-0
   }
   
-  # Identify extant species with connections
-  #we now want to eliminate all species that have no connections to
-  #anyone else
-  #To look for rows of 0 do a sum(A') then a find
+  #Allow for extinctions - species without connections go extinct
+  #counter for extinctions
+  Xextinctions<-Xextinctions+length(which(rowSums(Anew) == 0))
+  Yextinctions<-Yextinctions+length(which(colSums(Anew) == 0))  
+
+  # Identify and keep extant species with connections
+  # for X, this is rowSums
   XextantA <- which(rowSums(Anew) != 0) #these are all the x species that have 
   # at least one connection maintained to someone else
   iXextant <- iXextantnew[XextantA]
@@ -310,22 +319,24 @@ for (n in 1:endT) {
 ## Visualization
 
 # Plot the evolution of species traits over time for X and Y
-par(mfrow=c(3,2))  # Set up a 3x2 plotting grid
+#par(mfrow=c(3,2))  # Set up a 3x2 plotting grid
 
-plot(1:endT, xall[1:endT,1], type="p", cex=0.5, ylab="Mean Trait x", main="Evolution of Species Trait X")
-plot(1:endT, yall[1:endT,1], type="p", cex=0.5, ylab="Mean Trait y", main="Evolution of Species Trait Y")
+#plot(1:endT, xall[1:endT,1], type="p", cex=0.5, ylab="Mean Trait x", main="Evolution of Species Trait X")
+#plot(1:endT, yall[1:endT,1], type="p", cex=0.5, ylab="Mean Trait y", main="Evolution of Species Trait Y")
 
 
 # Display the adjacency matrix of interactions(this is t=400)
-x.at<-seq(0, NsppX+1)
-y.at<-seq(0, NsppY+1)
-image(t(A[1:NsppX, 1:NsppY]), axes=FALSE, main="Adjacency Matrix of Interactions", xlab="Pollinator species", ylab="Plant species")
-axis(1, at=x.at)
-axis(2, at=y.at)
+#x.at<-seq(0, NsppX+1)
+#y.at<-seq(0, NsppY+1)
+#image(t(A[1:NsppX, 1:NsppY]), axes=FALSE, main="Adjacency Matrix of Interactions", xlab="Pollinator species", ylab="Plant species")
+#axis(1, at=x.at)
+#axis(2, at=y.at)
 
 
 # Display the distribution of connections per pollinator
-hist(rowSums(A[1:NsppX, 1:NsppY]), main="Distribution of Connections per Pollinator", xlab="Number of connections", ylab="Frequency") 
+#hist(rowSums(A[1:NsppX, 1:NsppY]), main="Distribution of Connections per Pollinator", xlab="Number of connections", ylab="Frequency") 
 
 # Display connectedness over time
-plot(1:endT, connectedness, type="l", ylab="Connectedness", xlab="Iterations", main="Connectedness Over Time")
+#plot(1:endT, connectedness, type="l", ylab="Connectedness", xlab="Iterations", main="Connectedness Over Time")
+Xextinctions
+Yextinctions
