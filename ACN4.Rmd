@@ -1,7 +1,7 @@
 ---
-title: "ACN4"
-author: "Eric Zhao"
-date: "2023-09-13"
+title: "ACN4+"
+author: "Eric Zhao，Carrie Diaz Eaton"
+date: "2023-10-10"
 output: html_document
 ---
 
@@ -33,7 +33,7 @@ lapply(need_load, require, character.only = TRUE)
 rm(list=ls())
 
 # Setting up parameters (translated from MATLAB to R)
-T <- 400  # stop time T
+T <- 600  # stop time T
 pX <- 0.01  # probability of speciation for X species (e.g., plant)
 pY <- 0.01  # probability of speciation for Y species (e.g., animal)
 maxNX <- 500  # maximum number of X species for preallocation
@@ -45,8 +45,13 @@ thetay <- theta #phenotypic variance for y,
 xix <- 0.1  # standard deviation for drift (X species)
 xiy <- 0.1  # standard deviation for drift (Y species)
 xis <- 0.5  # standard deviation for trait value change during speciation
-c <- 0.99  # proportion of connection probability based on historical association
+c <- 0.9  # proportion of connection probability based on historical association
 
+#other counters
+extinctions <-0 #count full network extinctions
+Xextinctions<-0 #count X extinctions
+Yextinctions<-0 #count Y extinctions
+toobig <-0
 ```
 
 ## Other Initializations
@@ -55,6 +60,26 @@ c <- 0.99  # proportion of connection probability based on historical associatio
 
 # Starting with a single mutualism
 
+
+# creating a list storing interaction matrix at each time stamp
+s_size<-10
+ts_list<-vector(mode = "list", length = s_size)
+ts_stats_list<-vector(mode = "list", length = s_size)
+modu_scores_list<-vector(mode = "list", length = s_size)
+
+ts_stats<-matrix(0, nrow = 10, ncol = T)
+
+iteration_times<-rep(NA, T)
+inter_event_times<-c()
+last_event_time<-0
+
+```
+
+## Simulations
+```{r, warning=FALSE}
+for(k in 1:s_size){
+  
+  
 # Trait values
 x<-karray(0, c(2, maxNX))
 xall <- karray(0, c(T, maxNX))
@@ -68,9 +93,10 @@ y[1,1] <- 0
 
 # Interaction matrix (1 if species i and j interact, 0 otherwise)
 A <- matrix(0, nrow=1, ncol=1)
+M <- matrix(0, nrow=1, ncol=1)
 # We start with one species each that are connected to each other
 A[1,1] <- 1
-
+M[1,1] <- 0
 NsppX = 1; # total # of species of type X that have ever existed
 iXextant = 1;  #the indicies of the extant species (out of the NsppX in x)
 
@@ -85,25 +111,21 @@ NextantsppY <- length(iYextant)
 #keep track of phylogeny using indexing pointer--The
 #first row holds the tree topology and the second row holds the metric of
 #the tree (what generation speciation occured)
-phylogenyX<-matrix(0, nrow = 2, ncol = NsppX)
-phylogenyX<-rbind(c(1, 0), c(2, 0))
-phylogenyY<-matrix(0, nrow = 2, ncol = NsppY)
-phylogenyY<-rbind(c(1, 0), c(2, 0))
+# phylogenyX<-matrix(0, nrow = 2, ncol = NsppX)
+# phylogenyX<-rbind(c(1, 0), c(2, 0))
+# phylogenyY<-matrix(0, nrow = 2, ncol = NsppY)
+# phylogenyY<-rbind(c(1, 0), c(2, 0))
 
 
 connectedness <- matrix(0, 1, T)
 connectX <- matrix(0, 1, T)
 connectY <- matrix(0, 1, T)
 
-# creating a list storing interaction matrix at each time stamp
-ts_list<-list()
-```
+modu_scores<-c()
 
-## Simulation Loop
-```{r}
 # Main simulation loop
 for (n in 1:T) {
-  
+  start_time<-Sys.time()
   # Drift in traits for existing species
   xall[n,] <- x[1, ] 
   yall[n,] <- y[1, ] 
@@ -120,20 +142,29 @@ for (n in 1:T) {
   Aold <- A
   w<-A
   
-  for (i in 1:NextantsppX) {nI <- sum(A[i,])} #could prob use an apply
-  for (j in 1:NextantsppY) {mJ <- sum(A[,j])}
+  for (i in 1:NextantsppX) {
+    
+    nI <- sum(A[i,])
   
-  numerator1 <- (theta + v) / (mJ * sqrt(theta^2 + theta * v + v^2))
-  numerator2 <- (theta + v) / (nI * sqrt(theta^2 + theta * v + v^2))
-      
-  expTerm1 <- -1 * (v * (x[1, iXextant[i]] - muJ[j]) * (x[1, iXextant[i]] + muJ[j] - 2 * muI[i]) + theta * (muI[i] - muJ[j]) * (muI[i] + muJ[j] - 2 * x[1, iXextant[i]]))
-  expTerm2 <- -1 * (v * (y[1, iYextant[j]] - muI[i]) * (y[1, iYextant[j]] + muI[i] - 2 * muJ[j]) + theta * (muJ[j] - muI[i]) * (muI[i] + muJ[j] - 2 * y[1, iYextant[j]]))
-      
-  denominator <- theta^2 + theta * v + v^2
-      
-  #w[i,j] <- numerator1 * exp(expTerm1 / denominator)
-  w[i,j] <- numerator2 * exp(expTerm2 / denominator)
    
+  for (j in 1:NextantsppY) {
+    
+    mJ <- sum(A[,j])
+  
+    numerator1 <- (theta + v) / (mJ * sqrt(theta^2 + theta * v + v^2))
+    numerator2 <- (theta + v) / (nI * sqrt(theta^2 + theta * v + v^2))
+      
+    expTerm1 <- -1 * (v * (x[1, iXextant[i]] - muJ[j]) * (x[1, iXextant[i]] + muJ[j] - 2 * muI[i]) + theta * (muI[i] - muJ[j]) * (muI[i] + muJ[j] - 2 * x[1, iXextant[i]]))
+    expTerm2 <- -1 * (v * (y[1, iYextant[j]] - muI[i]) * (y[1, iYextant[j]] + muI[i] - 2 * muJ[j]) + theta * (muJ[j] - muI[i]) * (muI[i] + muJ[j] - 2 * y[1, iYextant[j]]))
+      
+    denominator <- theta^2 + theta * v + v^2
+      
+    #w[i,j] <- numerator1 * exp(expTerm1 / denominator)
+    w[i,j] <- numerator2 * exp(expTerm2 / denominator)
+    M[i,j] <-w[i,j]/sum(w[i,]) #normalized to probabilites
+
+  }
+}
   m<-0
   NoldsppX <- NsppX
   
@@ -164,6 +195,7 @@ for (n in 1:T) {
     if (runif(1) < pX) {
       NsppX <- NsppX + 1  # keeps track of how many spp there are now
       
+      
       if (NsppX > maxNX) {
         cat("error, the number of species type X is greater than the number allocated\n")
         toobig <- toobig + 1
@@ -175,7 +207,7 @@ for (n in 1:T) {
       
       #add a new row for the new X species
       A <- rbind(A, A[m, ])  # inherits parental connections
-      w <- rbind(w, w[m, ])  # and those connections inherit the same fitness value, at least initially
+      M <- rbind(M, M[m, ])  # and those connections inherit the same fitness value, at least initially
       
       
       # now we make sure that we know that this new species is a sister species to species i
@@ -188,6 +220,8 @@ for (n in 1:T) {
       #if((boo[1]+1)<=dim(phylogenyX)[2]){
       #  phylogenyX[, boo[1]+1] <- c(NsppX, n)
       #} else {phylogenyX<-cbind(phylogenyX, c(NsppX, n))}
+      inter_event_times<-c(inter_event_times, Sys.time()-last_event_time)
+      nt_time<-Sys.time()
     }
     
     
@@ -214,6 +248,7 @@ for (n in 1:T) {
     # speciation event - which occurs with probability pY
     if (runif(1) < pY) {
       NsppY <- NsppY + 1  # keeps track of how many spp there are now
+     
       
       if (NsppY > maxNY) {
         cat("error, the number of species type Y is greater than the number allocated\n")
@@ -226,7 +261,7 @@ for (n in 1:T) {
       
       #add a column for the new y spp
       A <- cbind(A, A[, m])  # inherits parental connections
-      w <- cbind(w, w[, m])  # and those connections inherit the same fitness value, at least initially
+      M <- cbind(M, M[, m])  # and those connections inherit the same fitness value, at least initially
       
       # now we make sure that we know that this new species is a sister species to species i
      # boo <- which(phylogenyY[1, ] == i)
@@ -238,6 +273,8 @@ for (n in 1:T) {
       #if((boo[1]+1)<=dim(phylogenyY)[2]){
       #  phylogenyY[, boo[1]+1] <- c(NsppY, n)
       #} else {phylogenyY<-cbind(phylogenyY, c(NsppY, n))}
+      inter_event_times<-c(inter_event_times, Sys.time()-last_event_time)
+      last_event_time<-Sys.time()
     }
     
   }
@@ -267,7 +304,7 @@ for (n in 1:T) {
     im<-im+1
     for (j in iYextantnew) {
       jm<-jm+1
-      matching <- c*A[im,jm]+ (1-c)*w[im,jm]
+      matching <- c*A[im,jm]+ (1-c)*M[im,jm]
       
       if(matching>runif(1)){
         Anew[im, jm]<-1
@@ -275,6 +312,10 @@ for (n in 1:T) {
     }
     jm<-0
   }
+  
+  #counter for extinctions(species death)
+  Xextinctions<-Xextinctions+length(which(rowSums(Anew) == 0))
+  Yextinctions<-Yextinctions+length(which(colSums(Anew) == 0)) 
   
   # Identify extant species with connections
   #we now want to eliminate all species that have no connections to
@@ -307,6 +348,8 @@ for (n in 1:T) {
     break
   }
   
+  
+  
   # Update interaction matrix
   A <- karray(Anew[XextantA, YextantA], c(NextantsppX, NextantsppY))
   
@@ -317,13 +360,28 @@ for (n in 1:T) {
   y[2, ] <- rep(NaN, maxNY)
   
   # Calculate connectedness
-  connectedness[1, n] <- sum(sum(A)) / (NextantsppX * NextantsppY)
+  #connectedness[1, n] <- sum(sum(A)) / (NextantsppX * NextantsppY)
 
 ## appending new interaction matrix into the list
-ts_list[[n]]<-A
+ts_list[[k]][[n]]<-as.array(A)
    
-   
+if(dim(as.array(A))[1]>1 &&dim(as.array(A))[2]>1){
+  modu_scores<-c(modu_scores, computeModules(as.array(A))@likelihood)
 }
+else{modu_scores<-c(modu_scores, NA)}
+
+ts_stats[, n]<-c(networklevel(as.array(A), index ="info"), networklevel(as.array(A), index = c("nestedness", "cluster coefficient")))
+
+
+end_time<-Sys.time()
+  #recording time interval for each interations
+  iteration_times[n]<-end_time-start_time
+}
+ts_stats_list[[k]]<-ts_stats
+modu_scores_list[[k]]<-modu_scores
+inter_event_times<-inter_event_times[-1]
+}
+
 ```
 
 
@@ -331,9 +389,15 @@ ts_list[[n]]<-A
 
 
 
-## Analyze bipartite graphs at the last time stamp
+
+
+
+
+
+## Visualize the bipartite graph at the last time stamp
 
 ``` {r}
+A<-ts_list[[3]][[600]]
 # assign plants' name to the plants
 rname_vec<-rep(0, length(A[,1]))
 for (i in 1:length(A[,1])) {
@@ -352,10 +416,10 @@ View(A)
 
 ```
 
-### First convert adjacency matrix to edgelist
+### First convert incidence matrix to edgelist
 ```{r}
 #
-polli.g<- graph.incidence(as.matrix(A), weighted = TRUE)
+polli.g<- graph.incidence(A, weighted = TRUE)
 polli_el <- get.edgelist(polli.g)
 View(polli_el)
 ```
@@ -381,7 +445,7 @@ polli_web<- frame2webs(polli_new, varnames = c("plant", "pollinator", "webID"), 
 # create a color vector
 cols1<-c( '#8214a0', '#005ac8', '#00a0fa', '#fa78fa', '#14d2dc', '#aa0a3c', '#fa7850', '#0ab45a', '#f0f032', '#a0fa82', '#fae6be') 
 # plot the two-dimensional matrix to a bipartite graph
-plotweb(polli_web$"pp", method='cca', labsize=1,col.interaction=cols1, bor.col.interaction=cols1)                    
+plotweb(polli_web$"pp", method='cca', labsize=1, col.interaction=cols1, bor.col.interaction=cols1)                    
 ```
 
 
@@ -390,43 +454,23 @@ plotweb(polli_web$"pp", method='cca', labsize=1,col.interaction=cols1, bor.col.i
 ### Visualizing the interaction matrix
 This code will visualize the interaction/adjacency matrix. Look up the documentation, play with the command, and then comment within the code block to explain how to use visweb.
 
-``` {r}
-# set the color of levels of interactions
-cols2<-c('white', '#006e82')
-#you can also try other palettes
-#cols2 <- brewer.pal(2, "Reds")
-#visualize the interaction matrix
+``` {r warning=FALSE}
+# # set the color of levels of interactions
+# cols2<-c('white', '#006e82')
+# #you can also try other palettes
+cols2 <- brewer.pal(2, "Reds")
+# #visualize the interaction matrix
+par(mfrow=c(2,2))
+plot(1:T, xall[1:T,1], type="p", cex=0.5, xlab = "iterations", ylab="Mean Trait x", main="Evolution of Species Trait X")
+plot(1:T, yall[1:T,1], type="p", cex=0.5, xlab="iterations", ylab="Mean Trait y", main="Evolution of Species Trait Y")
+plotweb(polli_web$"pp", method='cca', labsize=1, col.interaction=cols1, bor.col.interaction=cols1)        
 visweb(polli_web$'pp', type='nested', labsize=0.3, plotsize=28 ,square="def",def.col=cols2)
 ```
 
+## Now we are considering time-evolving features
 
 
-## Visualization
-```{r}
-
-# Plot the evolution of species traits over time for X and Y
-par(mfrow=c(3,2))  # Set up a 3x2 plotting grid
-
-plot(1:T, xall[1:T,1], type="p", cex=0.5, ylab="Mean Trait x", main="Evolution of Species Trait X")
-plot(1:T, yall[1:T,1], type="p", cex=0.5, ylab="Mean Trait y", main="Evolution of Species Trait Y")
-
-
-# Display the adjacency matrix of interactions(this is t=400)
-x.at<-seq(0, NsppX+1)
-y.at<-seq(0, NsppY+1)
-image(t(A[1:NsppX, 1:NsppY]), axes=FALSE, main="Adjacency Matrix of Interactions", xlab="Pollinator species", ylab="Plant species")
-axis(1, at=x.at)
-axis(2, at=y.at)
-
-             
-# Display the distribution of connections per pollinator
-hist(rowSums(A[1:NsppX, 1:NsppY]), main="Distribution of Connections per Pollinator", xlab="Number of connections", ylab="Frequency") 
-
-# Display connectedness over time
-plot(1:T, connectedness, type="l", ylab="Connectedness", xlab="Iterations", main="Connectedness Over Time")
-
-```
-## time-evolving networks
+### constructing a multidimensional array from list of interaction matrices
 ```{r}
 #largest dimension
 max_dim<-unlist(lapply(ts_list, dim))[c(n*2-1, n*2)]
@@ -441,13 +485,243 @@ ts_multi_A<-array(c(unlist(ts_list_expanded)), dim = c(max_dim[1], max_dim[2], n
 ```
 
 
-## ...
-```{r}
+### Key time-series statistics 
+
+```{r, warning=FALSE}
+par(mfrow= c(5, 2), mar = c(4.5, 4, 1, 2))
+
+for(q in 1: length(modu_scores_list)){
+plot(modu_scores_list[[q]], type = "l", ylab="Modularity score", xlab="Iterations")#, main="modularity over time")
+}
+
+```
+
+# ```{r old visuals}
+# plot(1:T, xall[1:T,1], type="p", cex=0.5, ylab="Mean Trait x", main="Evolution of Species Trait X")
+# plot(1:T, yall[1:T,1], type="p", cex=0.5, ylab="Mean Trait y", main="Evolution of Species Trait Y")
+# 
+# x.at<-seq(0, NsppX+1)
+# y.at<-seq(0, NsppY+1)
+# 
+# # image(t(A[1:NsppX, 1:(NsppY-1)]), axes=FALSE, main="Adjacency Matrix of Interactions", xlab="Pollinator species", ylab="Plant species")
+# ```
+
+
+```{r connectance}
+
+# Plot the evolution of species traits over time for X and Y
+#par(mfrow=c(3,1))  # Set up a 3x2 plotting grid
+# 
+# plot(1:T, xall[1:T,1], type="p", cex=0.5, ylab="Mean Trait x", main="Evolution of Species Trait X")
+# plot(1:T, yall[1:T,1], type="p", cex=0.5, ylab="Mean Trait y", main="Evolution of Species Trait Y")
+# 
+
+ #Display the adjacency matrix of interactions(this is t=400)
+# x.at<-seq(0, NsppX+1)
+# y.at<-seq(0, NsppY+1)
+# image(t(A[1:NsppX, 1:(NsppY-1)]), axes=FALSE, main="Adjacency Matrix of Interactions", xlab="Pollinator species", ylab="Plant species")
+# axis(1, at=x.at)
+# axis(2, at=y.at)
+
+    
+# Display the distribution of connections per pollinator
+# hist(rowSums(as.array(A[1:NsppX, 1:(NsppY-1)])), main="Distribution of Connections per Pollinator", xlab="Number of connections", ylab="Frequency") 
+
+# Display connectedness and several key indices over time
+# plot(1:T, connectedness, type="l", ylab="Connectedness", xlab="Iterations", main="Connectedness Over Time")
+rownames(ts_stats_list[[1]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")
+par(mfrow= c(5, 2), mar = c(4.5, 4, 1, 2))
+
+for (i in 1:length(ts_stats_list[[1]][,1])) {
+  plot(1:T, ts_stats_list[[i]][1,1:T], type = "l", ylab = rownames(ts_stats_list[[1]])[1], xlab = "Iterations")
+}
+
+
+
+# plot(inter_event_times, type = "l", ylab="inter_event_times", xlab="Iterations", main="Inter-event Times")
+# plot(iteration_times, type = "l", ylab="inter_interation_times", xlab="Iterations", main="Inter-iteration Times Over Time")
 
 ```
 
 
 
+```{r web asymmetry}
+rownames(ts_stats_list[[2]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")#, "modularity")
+par(mfrow= c(5, 2), mar = c(4.5, 4, 1, 2))
 
+for (i in 1:length(ts_stats_list[[2]][,1])) {
+  plot(1:T, ts_stats_list[[i]][2,1:T], type = "l", ylab = rownames(ts_stats_list[[2]])[2], xlab = "Iterations")
+}
+
+
+
+```
+
+
+
+```{r links per species}
+rownames(ts_stats_list[[3]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")#, "modularity")
+par(mfrow= c(5, 2), mar = c(4.5, 4, 1, 2))
+
+for (i in 1:length(ts_stats_list[[3]][,1])) {
+  plot(1:T, ts_stats_list[[i]][3,1:T], type = "l", ylab = rownames(ts_stats_list[[3]])[3], xlab = "Iterations")
+}
+```
+
+```{r number of compartments}
+rownames(ts_stats_list[[4]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")#, "modularity")
+
+for (i in 1:length(ts_stats_list[[4]][,1])) {
+  plot(1:T, ts_stats_list[[i]][4,1:T], type = "l", ylab = rownames(ts_stats_list[[4]])[4], xlab = "Iterations")
+}
+
+```
+
+```{r number of s hl}
+rownames(ts_stats_list[[5]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")#, "modularity")
+
+for (i in 1:length(ts_stats_list[[5]][,1])) {
+  plot(1:T, ts_stats_list[[i]][5,1:T], type = "l", ylab = rownames(ts_stats_list[[5]])[5], xlab = "Iterations")
+}
+
+
+```
+
+
+```{r}
+rownames(ts_stats_list[[6]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")#, "modularity")
+
+for (i in 1:length(ts_stats_list[[6]][,1])) {
+  plot(1:T, ts_stats_list[[i]][6,1:T], type = "l", ylab = rownames(ts_stats_list[[6]])[6], xlab = "Iterations")
+}
+
+```
+
+
+```{r}
+rownames(ts_stats_list[[7]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")#, "modularity")
+
+par(mfrow= c(5, 2), mar = c(4.5, 4, 1, 2))
+
+for (i in 1:length(ts_stats_list[[7]][,1])) {
+  plot(1:T, ts_stats_list[[i]][7,1:T], type = "l", ylab = rownames(ts_stats_list[[7]])[7], xlab = "Iterations")
+}
+
+```
+
+
+```{r}
+
+
+```
+
+
+```{r}
+rownames(ts_stats_list[[7]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")
+for (i in 1:length(ts_stats_list[[9]][,1])) {
+  plot(1:T, ts_stats_list[[i]][9,1:T], type = "l", ylab = rownames(ts_stats_list[[7]])[9], xlab = "Iterations")
+}
+```
+
+
+```{r}
+rownames(ts_stats_list[[7]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")
+for (i in 1:length(ts_stats_list[[7]][,1])) {
+  plot(1:T, ts_stats_list[[i]][10,1:T], type = "l", ylab = rownames(ts_stats_list[[7]])[10], xlab = "Iterations")
+}
+```
+
+
+
+
+### time-series analysis
+
+```{r}
+
+date <- seq(Sys.Date(), by = "days", length.out = 600)
+
+
+sample_1<-as.data.frame(t(ts_stats_list[[1]]))
+sample_1<-as_tibble(cbind(date, modu_scores_list[[i]], sample_1))
+colnames(sample_1)<-c("date", "modularity","connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")
+
+
+```
+
+
+#### data tibble convertion
+```{r}
+sample_list<-list()
+for (i in 1:10) {
+  
+  sample_list[[i]]<-as.data.frame(t(ts_stats_list[[i]]))
+  sample_list[[i]]<-as_tibble(cbind(date, modu_scores_list[[i]], sample_list[[i]]))
+  # assign(paste("sample_", i,sep = ""), as.tibble(cbind(date,modu_scores_list[[i]],assign(paste("sample_", i,sep = ""),as.data.frame((t(ts_stats_list[[i]])))))))
+  colnames(sample_list[[i]])<-c("date", "modularity","connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")
+}
+
+  # rownames(glue(sample_{i}))<-c("date", "modularity","connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")
+
+#sample_1<-as.data.frame(t(ts_stats_list[[1]]))
+#sample_1<-as_tibble(cbind(date, sample_1))
+```
+
+#### data export
+```{r}
+for (i in 1:10) {
+  sample_list[[i]]$modularity[which(is.na(sample_list[[i]]$modularity))]<-0
+
+  write_csv(sample_list[[i]], paste("indicators_sample",i,".csv", sep = ""))
+}
+```
+
+
+
+#### Anomalize Package
+
+```{r}
+sample_1 %>%
+    time_decompose(connectance, method = "twitter") %>%
+    anomalize(remainder, method = "gesd") %>%
+    time_recompose() %>%    
+    plot_anomaly_decomposition()
+```
+```{r}
+sample1_conn_anomalized<-sample_1 %>% time_decompose(connectance, method = "twitter") %>% anomalize(remainder, method = "gesd")
+which(sample1_conn_anomalized$anomaly=="Yes")
+```
+
+
+```{r}
+sample_1$modularity[which(is.na(sample_1$modularity))]<-0
+
+sample_1 %>%
+    time_decompose(modularity, method = "twitter") %>%
+    anomalize(remainder, method = "gesd") %>%
+    time_recompose() %>%    
+    plot_anomalies(time_recomposed = TRUE, ncol = 3, alpha_dots = 0.25)
+```
+
+
+```{r}
+sample_1 %>%
+    time_decompose(`clustering coefficient`, method = "twitter") %>%
+    anomalize(remainder, method = "gesd") %>%
+    time_recompose() %>%    
+    plot_anomalies(time_recomposed = TRUE, ncol = 3, alpha_dots = 0.25)
+```
+
+```{r}
+#sample_1_decomposed<-sample_1 %>% time_decompose(connectance, method = "twitter")
+
+sample_list_decomposed<-list()
+for (i in 1:10) {
+  
+  sample_list_decomposed[[i]]<-sample_list[[i]] %>% time_decompose(connectance, method = "stl")
+  
+  write_csv(sample_list_decomposed[[i]], paste("Connectance_sample",i,"_decomposed.csv", sep = ""))
+}
+
+```
 
 

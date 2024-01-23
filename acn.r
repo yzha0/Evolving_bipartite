@@ -14,11 +14,11 @@ rm(list=ls())
 library(keep)
 
 # Setting up parameters 
-endT <- 600  # stop time T - internally T is TRUE in R, need to use alternate
+endT <- 400  # stop time T - internally T is TRUE in R, need to use alternate
 pX <- 0.01  # probability of speciation for X species (e.g., plant)
 pY <- 0.01  # probability of speciation for Y species (e.g., animal)
 maxNX <- 500  # maximum number of X species for preallocation
-maxNY <- 500  # maximum number of Y species for preallocation
+maxNY <- 1500  # maximum number of Y species for preallocation
 v <- .2  # tolerance parameter for trait matching
 theta <- 0.1  # assuming all theta values are the same in the model
 thetax <- theta #phenotypic variance for x,
