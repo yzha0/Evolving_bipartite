@@ -1,8 +1,11 @@
-#title: "ACN4"
+#title: "ACN.r"
 #author: "Eric Zhao and Carrie Diaz Eaton"
-#date: "2023-10-09"
+#date: "2024-1-24"
 # This is an R version, translated from MATLAB
 # CDE debugged code on 10-10-23, using keep package
+# This is the reference code for a single data set simulation.
+# While connectance values are tracked, it does not keep track
+# of the full interaction matrix at each time step.
 
 ## Parameters set-up
 
@@ -14,7 +17,7 @@ rm(list=ls())
 library(keep)
 
 # Setting up parameters 
-endT <- 400  # stop time T - internally T is TRUE in R, need to use alternate
+endT <- 1000  # stop time T - internally T is TRUE in R, need to use alternate
 pX <- 0.01  # probability of speciation for X species (e.g., plant)
 pY <- 0.01  # probability of speciation for Y species (e.g., animal)
 maxNX <- 500  # maximum number of X species for preallocation
@@ -65,6 +68,10 @@ iYextant = 1;  #the indicies of the extant species (out of the NsppX in x)
 #total # of extant species 
 NextantsppX <- length(iXextant)
 NextantsppY <- length(iYextant)
+
+# This code was to create a more accurate picture of cophylogeny
+# However, bipartite package has other visualization tools, so 
+# this code and related code is commented out. 
 #To keep track of phylogeny, we use an indexing pointer-like system  The
 #first row holds the tree topology and the second row holds the metric of
 #the tree (what generation speciation occured)
@@ -337,6 +344,6 @@ for (n in 1:endT) {
 #hist(rowSums(A[1:NsppX, 1:NsppY]), main="Distribution of Connections per Pollinator", xlab="Number of connections", ylab="Frequency") 
 
 # Display connectedness over time
-#plot(1:endT, connectedness, type="l", ylab="Connectedness", xlab="Iterations", main="Connectedness Over Time")
+plot(1:endT, connectedness, type="l", ylab="Connectedness", xlab="Iterations", main="Connectedness Over Time")
 Xextinctions
 Yextinctions
