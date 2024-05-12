@@ -13,7 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(echo = TRUE)
 
 # Store string containing all required packages
-my_packages <- c('keep','bipartite', 'RColorBrewer', 'igraph')
+my_packages <- c('keep','bipartite', 'RColorBrewer', 'igraph', "readr")
 
 # Store all installed packages
 ya_loaded <- (.packages())
@@ -33,10 +33,10 @@ lapply(need_load, require, character.only = TRUE)
 rm(list=ls())
 
 # Setting up parameters (translated from MATLAB to R)
-T <- 600  # stop time T
+T <- 400  # stop time T
 pX <- 0.01  # probability of speciation for X species (e.g., plant)
 pY <- 0.01  # probability of speciation for Y species (e.g., animal)
-maxNX <- 500  # maximum number of X species for preallocation
+maxNX <- 1000  # maximum number of X species for preallocation
 maxNY <- 1500  # maximum number of Y species for preallocation
 v <- 1  # tolerance parameter for trait matching
 theta <- 0.1  # assuming all theta values are the same in the model
@@ -69,13 +69,13 @@ modu_scores_list<-vector(mode = "list", length = s_size)
 
 ts_stats<-matrix(0, nrow = 10, ncol = T)
 
-iteration_times<-rep(NA, T)
-inter_event_times<-c()
-last_event_time<-0
+#iteration_times<-rep(NA, T)
+#inter_event_times<-c()
+#last_event_time<-0
 
 ```
 
-## Simulations
+## Network Growth Simulations
 ```{r, warning=FALSE}
 for(k in 1:s_size){
   
@@ -93,10 +93,10 @@ y[1,1] <- 0
 
 # Interaction matrix (1 if species i and j interact, 0 otherwise)
 A <- matrix(0, nrow=1, ncol=1)
-M <- matrix(0, nrow=1, ncol=1)
+#M <- matrix(0, nrow=1, ncol=1)
 # We start with one species each that are connected to each other
 A[1,1] <- 1
-M[1,1] <- 0
+#M[1,1] <- 0
 NsppX = 1; # total # of species of type X that have ever existed
 iXextant = 1;  #the indicies of the extant species (out of the NsppX in x)
 
@@ -117,15 +117,15 @@ NextantsppY <- length(iYextant)
 # phylogenyY<-rbind(c(1, 0), c(2, 0))
 
 
-connectedness <- matrix(0, 1, T)
-connectX <- matrix(0, 1, T)
-connectY <- matrix(0, 1, T)
+#connectedness <- matrix(0, 1, T)
+#connectX <- matrix(0, 1, T)
+#connectY <- matrix(0, 1, T)
 
 modu_scores<-c()
 
 # Main simulation loop
 for (n in 1:T) {
-  start_time<-Sys.time()
+  #start_time<-Sys.time()
   # Drift in traits for existing species
   xall[n,] <- x[1, ] 
   yall[n,] <- y[1, ] 
@@ -161,7 +161,7 @@ for (n in 1:T) {
       
     #w[i,j] <- numerator1 * exp(expTerm1 / denominator)
     w[i,j] <- numerator2 * exp(expTerm2 / denominator)
-    M[i,j] <-w[i,j]/sum(w[i,]) #normalized to probabilites
+    #M[i,j] <-w[i,j]/sum(w[i,]) #normalized to probabilites
 
   }
 }
@@ -207,7 +207,7 @@ for (n in 1:T) {
       
       #add a new row for the new X species
       A <- rbind(A, A[m, ])  # inherits parental connections
-      M <- rbind(M, M[m, ])  # and those connections inherit the same fitness value, at least initially
+      w <- rbind(w, w[m, ])  # and those connections inherit the same fitness value, at least initially
       
       
       # now we make sure that we know that this new species is a sister species to species i
@@ -220,8 +220,8 @@ for (n in 1:T) {
       #if((boo[1]+1)<=dim(phylogenyX)[2]){
       #  phylogenyX[, boo[1]+1] <- c(NsppX, n)
       #} else {phylogenyX<-cbind(phylogenyX, c(NsppX, n))}
-      inter_event_times<-c(inter_event_times, Sys.time()-last_event_time)
-      nt_time<-Sys.time()
+      #inter_event_times<-c(inter_event_times, Sys.time()-last_event_time)
+      #nt_time<-Sys.time()
     }
     
     
@@ -261,7 +261,7 @@ for (n in 1:T) {
       
       #add a column for the new y spp
       A <- cbind(A, A[, m])  # inherits parental connections
-      M <- cbind(M, M[, m])  # and those connections inherit the same fitness value, at least initially
+      w <- cbind(w, w[, m])  # and those connections inherit the same fitness value, at least initially
       
       # now we make sure that we know that this new species is a sister species to species i
      # boo <- which(phylogenyY[1, ] == i)
@@ -273,8 +273,8 @@ for (n in 1:T) {
       #if((boo[1]+1)<=dim(phylogenyY)[2]){
       #  phylogenyY[, boo[1]+1] <- c(NsppY, n)
       #} else {phylogenyY<-cbind(phylogenyY, c(NsppY, n))}
-      inter_event_times<-c(inter_event_times, Sys.time()-last_event_time)
-      last_event_time<-Sys.time()
+      #inter_event_times<-c(inter_event_times, Sys.time()-last_event_time)
+      #last_event_time<-Sys.time()
     }
     
   }
@@ -304,7 +304,7 @@ for (n in 1:T) {
     im<-im+1
     for (j in iYextantnew) {
       jm<-jm+1
-      matching <- c*A[im,jm]+ (1-c)*M[im,jm]
+      matching <- c*A[im,jm]+ (1-c)*w[im,jm]
       
       if(matching>runif(1)){
         Anew[im, jm]<-1
@@ -373,13 +373,13 @@ else{modu_scores<-c(modu_scores, NA)}
 ts_stats[, n]<-c(networklevel(as.array(A), index ="info"), networklevel(as.array(A), index = c("nestedness", "cluster coefficient")))
 
 
-end_time<-Sys.time()
+#end_time<-Sys.time()
   #recording time interval for each interations
-  iteration_times[n]<-end_time-start_time
+#  iteration_times[n]<-end_time-start_time
 }
 ts_stats_list[[k]]<-ts_stats
 modu_scores_list[[k]]<-modu_scores
-inter_event_times<-inter_event_times[-1]
+#inter_event_times<-inter_event_times[-1]
 }
 
 ```
@@ -397,7 +397,7 @@ inter_event_times<-inter_event_times[-1]
 ## Visualize the bipartite graph at the last time stamp
 
 ``` {r}
-A<-ts_list[[3]][[600]]
+A<-ts_list[[4]][[300]]
 # assign plants' name to the plants
 rname_vec<-rep(0, length(A[,1]))
 for (i in 1:length(A[,1])) {
@@ -424,7 +424,20 @@ polli_el <- get.edgelist(polli.g)
 View(polli_el)
 ```
 
+### projection
+```{r}
+proj_pl_400<- A %*% t(A)
+proj_V_400<- t(A) %*% A
 
+proj_pl.g<-graph.adjacency(proj_pl_400, mode = "undirected", weighted = TRUE, diag = FALSE)
+proj_v.g<-graph.adjacency(proj_V_400, mode = "undirected",  weighted = TRUE, diag = FALSE)
+
+plot(proj_pl.g, layout=layout_with_kk, vertex.size=log2(degree(proj_pl.g)),vertex.frame.color= NA,vertex.label.color="black",
+vertex.label.dist=0.5,vertex.label.cex=0.7, vertex.label.font=2, edge.width=log(E(proj_pl.g)$weight))
+
+plot(proj_v.g, layout=layout_with_kk, vertex.size=log2(degree(proj_v.g)),vertex.frame.color= NA,vertex.label.color="black",
+vertex.label.dist=0.5,vertex.label.cex=0.7, vertex.label.font=2, edge.width=log(E(proj_v.g)$weight))
+```
 
 ### Structuring the bipartite graphs
 ```{r}
@@ -460,11 +473,11 @@ This code will visualize the interaction/adjacency matrix. Look up the documenta
 # #you can also try other palettes
 cols2 <- brewer.pal(2, "Reds")
 # #visualize the interaction matrix
-par(mfrow=c(2,2))
-plot(1:T, xall[1:T,1], type="p", cex=0.5, xlab = "iterations", ylab="Mean Trait x", main="Evolution of Species Trait X")
-plot(1:T, yall[1:T,1], type="p", cex=0.5, xlab="iterations", ylab="Mean Trait y", main="Evolution of Species Trait Y")
-plotweb(polli_web$"pp", method='cca', labsize=1, col.interaction=cols1, bor.col.interaction=cols1)        
-visweb(polli_web$'pp', type='nested', labsize=0.3, plotsize=28 ,square="def",def.col=cols2)
+#par(mfrow=c(2,2))
+#plot(1:T, xall[1:T,1], type="p", cex=0.5, xlab = "iterations", ylab="Mean Trait x", main="Evolution of Species Trait X")
+#plot(1:T, yall[1:T,1], type="p", cex=0.5, xlab="iterations", ylab="Mean Trait y", main="Evolution of Species Trait Y")
+plotweb(polli_web$"pp", method='cca', labsize=1, col.interaction=cols2, bor.col.interaction=cols2)        
+visweb(polli_web$'pp', type='nested', labsize=0.8, plotsize=20 ,square="def",def.col=cols2)
 ```
 
 ## Now we are considering time-evolving features
@@ -491,8 +504,8 @@ ts_multi_A<-array(c(unlist(ts_list_expanded)), dim = c(max_dim[1], max_dim[2], n
 par(mfrow= c(5, 2), mar = c(4.5, 4, 1, 2))
 
 for(q in 1: length(modu_scores_list)){
-plot(modu_scores_list[[q]], type = "l", ylab="Modularity score", xlab="Iterations")#, main="modularity over time")
-}
+plot(1:T, modu_scores_list[[q]], ylim = range(modu_scores_list[[q]], na.rm = TRUE) ,type = "l", ylab="Modularity score", xlab="Iterations")#, main="modularity over time")
+ylim=c(0, 1)}
 
 ```
 
@@ -529,11 +542,11 @@ plot(modu_scores_list[[q]], type = "l", ylab="Modularity score", xlab="Iteration
 
 # Display connectedness and several key indices over time
 # plot(1:T, connectedness, type="l", ylab="Connectedness", xlab="Iterations", main="Connectedness Over Time")
-rownames(ts_stats_list[[1]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")
-par(mfrow= c(5, 2), mar = c(4.5, 4, 1, 2))
+# rownames(ts_stats_list[[1]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")
+par(mfrow= c(5, 2), mar = c(2.5, 0.5, 2, 1.5))
 
-for (i in 1:length(ts_stats_list[[1]][,1])) {
-  plot(1:T, ts_stats_list[[i]][1,1:T], type = "l", ylab = rownames(ts_stats_list[[1]])[1], xlab = "Iterations")
+for (i in 1:length(sample_list)) {
+  plot(1:T, sample_list[[i]]$connectance, type = "l", ylab = colnames(sample_list[[1]])[3], xlab = "Iterations", main=paste0("Sample ", i))
 }
 
 
@@ -546,11 +559,11 @@ for (i in 1:length(ts_stats_list[[1]][,1])) {
 
 
 ```{r web asymmetry}
-rownames(ts_stats_list[[2]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")#, "modularity")
-par(mfrow= c(5, 2), mar = c(4.5, 4, 1, 2))
+# rownames(ts_stats_list[[2]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")#, "modularity")
+par(mfrow= c(5, 2), mar = c(2.5, 0.5, 1, 1.5))
 
-for (i in 1:length(ts_stats_list[[2]][,1])) {
-  plot(1:T, ts_stats_list[[i]][2,1:T], type = "l", ylab = rownames(ts_stats_list[[2]])[2], xlab = "Iterations")
+for (i in 1:length(sample_list)) {
+  plot(1:T, sample_list[[i]]$web.asymmetry, type = "l", ylab = colnames(sample_list[[1]])[4], xlab = "Iterations", main = paste0("Sample ", i))
 }
 
 
@@ -560,19 +573,21 @@ for (i in 1:length(ts_stats_list[[2]][,1])) {
 
 
 ```{r links per species}
-rownames(ts_stats_list[[3]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")#, "modularity")
-par(mfrow= c(5, 2), mar = c(4.5, 4, 1, 2))
+# rownames(ts_stats_list[[3]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")#, "modularity")
+par(mfrow= c(5, 2), mar = c(2.5, 0.5, 1, 1.5))
 
-for (i in 1:length(ts_stats_list[[3]][,1])) {
-  plot(1:T, ts_stats_list[[i]][3,1:T], type = "l", ylab = rownames(ts_stats_list[[3]])[3], xlab = "Iterations")
+for (i in 1:length(sample_list)) {
+  plot(1:T, sample_list[[i]]$links.per.species, type = "l", ylab = colnames(sample_list[[1]])[5], xlab = "Iterations", main = paste0("Sample", i), )
 }
 ```
 
 ```{r number of compartments}
-rownames(ts_stats_list[[4]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")#, "modularity")
+# rownames(ts_stats_list[[4]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")#, "modularity")
 
-for (i in 1:length(ts_stats_list[[4]][,1])) {
-  plot(1:T, ts_stats_list[[i]][4,1:T], type = "l", ylab = rownames(ts_stats_list[[4]])[4], xlab = "Iterations")
+par(mfrow= c(5, 2), mar = c(4.5, 4, 1, 2))
+
+for (i in 1:length(sample_list)) {
+  plot(1:T, sample_list[[i]]$number.of.compartments, type = "l", ylab = colnames(sample_list[[4]])[6], xlab = "Iterations")
 }
 
 ```
@@ -588,35 +603,39 @@ for (i in 1:length(ts_stats_list[[5]][,1])) {
 ```
 
 
-```{r}
+```{r number of s ll}
 rownames(ts_stats_list[[6]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")#, "modularity")
 
-for (i in 1:length(ts_stats_list[[6]][,1])) {
-  plot(1:T, ts_stats_list[[i]][6,1:T], type = "l", ylab = rownames(ts_stats_list[[6]])[6], xlab = "Iterations")
+for (i in 1:length(sample_list)) {
+  plot(1:T, ts_stats_list[[i]][6,1:T], type = "l", ylab = rownames(ts_stats_list[[6]])[6], xlab = "Iterations", main =paste0("Sample ", i))
 }
 
 ```
 
 
-```{r}
-rownames(ts_stats_list[[7]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")#, "modularity")
+```{r cc}
+# rownames(ts_stats_list[[7]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")#, "modularity")
 
-par(mfrow= c(5, 2), mar = c(4.5, 4, 1, 2))
+par(mfrow= c(5, 2), mar = c(2.5, 0.5, 1, 1.5))
 
-for (i in 1:length(ts_stats_list[[7]][,1])) {
-  plot(1:T, ts_stats_list[[i]][7,1:T], type = "l", ylab = rownames(ts_stats_list[[7]])[7], xlab = "Iterations")
+for (i in 1:length(sample_list)) {
+  plot(1:T, sample_list[[i]]$clustering.coefficient, type = "l", ylab = colnames(sample_list[[1]])[9], xlab = "Iterations", main =paste0("Sample ", i))
 }
 
 ```
 
 
-```{r}
+```{r modu}
+par(mfrow= c(5, 2), mar = c(2.5, 0.5, 1, 1.5))
 
+for (i in 1:length(sample_list)) {
+  plot(1:T, sample_list[[i]]$modularity, type = "l", ylab = colnames(sample_list[[1]])[2], xlab = "Iterations", main =paste0("Sample ", i) )
+}
 
 ```
 
 
-```{r}
+```{r cc hl}
 rownames(ts_stats_list[[7]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")
 for (i in 1:length(ts_stats_list[[9]][,1])) {
   plot(1:T, ts_stats_list[[i]][9,1:T], type = "l", ylab = rownames(ts_stats_list[[7]])[9], xlab = "Iterations")
@@ -624,7 +643,7 @@ for (i in 1:length(ts_stats_list[[9]][,1])) {
 ```
 
 
-```{r}
+```{r cc ll}
 rownames(ts_stats_list[[7]])<-c("connectance", "web asymmetry", "links per species", "number of compartments", "number of species hl", "number of species ll", "clustering coefficient", "nestedness", "clustering coefficient hl", "clustering coefficient ll")
 for (i in 1:length(ts_stats_list[[7]][,1])) {
   plot(1:T, ts_stats_list[[i]][10,1:T], type = "l", ylab = rownames(ts_stats_list[[7]])[10], xlab = "Iterations")
@@ -638,7 +657,7 @@ for (i in 1:length(ts_stats_list[[7]][,1])) {
 
 ```{r}
 
-date <- seq(Sys.Date(), by = "days", length.out = 600)
+date <- seq(Sys.Date(), by = "days", length.out = T)
 
 
 sample_1<-as.data.frame(t(ts_stats_list[[1]]))
@@ -670,58 +689,434 @@ for (i in 1:10) {
 ```{r}
 for (i in 1:10) {
   sample_list[[i]]$modularity[which(is.na(sample_list[[i]]$modularity))]<-0
-
+  sample_list[[i]]$nestedness[which(is.na(sample_list[[i]]$nestedness))]<-0
   write_csv(sample_list[[i]], paste("indicators_sample",i,".csv", sep = ""))
 }
 ```
 
 
+#### Autocorrelation and ADF
+```{r}
+library(tseries)
+sample_1_connectance<-sample_list[[1]]$connectance
+acf(sample_1_connectance,ci.type="ma")
+adf.test(sample_1_connectance)
+```
+
+```{r}
+sample_1_modu<-sample_list[[1]]$modularity
+acf(sample_1_modu, ci.type="ma")
+adf.test(sample_1_modu)
+```
+```{r}
+sample_1_cc<-sample_list[[1]]$clustering.coefficient
+acf(sample_1_cc, ci.type="ma")
+adf.test(sample_1_cc)
+```
+
+
+
 
 #### Anomalize Package
 
-```{r}
-sample_1 %>%
+```{r original series data read-in}
+sample_list<-list()
+for (i in 1:10) {
+  sample_list[[i]]<-as_tibble(read.csv(paste("indicators_sample",i,".csv", sep = "")
+))
+  sample_list[[i]]$date<-as.Date(sample_list[[i]]$date)
+  #sample_list[[i]]$iteration<-1:400
+}
+```
+
+##### Decomposition
+
+```{r stl Decomposition, eval=TRUE}
+sample_list[[1]] %>%
+    time_decompose(connectance, method = "stl") %>%
+    select(observed, season, trend, remainder) %>% mutate(iteration=1:400) %>%
+    pivot_longer(-iteration, names_to = "component", values_to = "value") %>%
+    arrange(component, iteration) %>%
+    ggplot(aes(x = iteration, y = value, color = component)) +
+    geom_line() +
+    facet_wrap(~component, scales = "free_y", ncol = 1) +
+    theme_minimal() +
+    labs(title = "Decomposed Time Series Components",
+         x = "Time",
+         y = "Value",
+         color = "Component")
+
+sample_list[[1]] %>%
+    time_decompose(modularity, method = "stl") %>%
+    select(observed, season, trend, remainder) %>% mutate(iteration=1:400) %>%
+    pivot_longer(-iteration, names_to = "component", values_to = "value") %>%
+    arrange(component, iteration) %>%
+    ggplot(aes(x = iteration, y = value, color = component)) +
+    geom_line() +
+    facet_wrap(~component, scales = "free_y", ncol = 1) +
+    theme_minimal() +
+    labs(title = "Decomposed Time Series Components",
+         x = "Time",
+         y = "Value",
+         color = "Component")
+
+
+sample_list[[1]] %>%
+    time_decompose(clustering.coefficient, method = "stl") %>%
+    select(observed, season, trend, remainder) %>% mutate(iteration=1:400) %>%
+    pivot_longer(-iteration, names_to = "component", values_to = "value") %>%
+    arrange(component, iteration) %>%
+    ggplot(aes(x = iteration, y = value, color = component)) +
+    geom_line() +
+    facet_wrap(~component, scales = "free_y", ncol = 1) +
+    theme_minimal() +
+    labs(title = "Decomposed Time Series Components",
+         x = "Time",
+         y = "Value",
+         color = "Component")
+
+
+```
+
+
+```{r Twitter Decomposition, eval=TRUE}
+sample_list[[1]] %>%
     time_decompose(connectance, method = "twitter") %>%
-    anomalize(remainder, method = "gesd") %>%
-    time_recompose() %>%    
-    plot_anomaly_decomposition()
-```
-```{r}
-sample1_conn_anomalized<-sample_1 %>% time_decompose(connectance, method = "twitter") %>% anomalize(remainder, method = "gesd")
-which(sample1_conn_anomalized$anomaly=="Yes")
-```
+    select(observed, season, median_spans, remainder) %>% mutate(iteration=1:400) %>%
+  pivot_longer(-iteration, names_to = "component", values_to = "value") %>%
+    mutate(component = factor(component, levels = c("observed", "remainder", "season", "median_spans"))) %>%
+  ggplot(aes(x = iteration, y = value, color = component)) +
+  geom_line() +
+  facet_wrap(~component, scales = "free_y", ncol = 1) +
+  theme_minimal() +
+  labs(title = "Decomposed Time Series Components",
+       x = "Time",
+       y = "Value",
+       color = "Component")
 
-
-```{r}
-sample_1$modularity[which(is.na(sample_1$modularity))]<-0
-
-sample_1 %>%
+sample_list[[1]] %>%
     time_decompose(modularity, method = "twitter") %>%
-    anomalize(remainder, method = "gesd") %>%
-    time_recompose() %>%    
-    plot_anomalies(time_recomposed = TRUE, ncol = 3, alpha_dots = 0.25)
+    select(observed, season, median_spans, remainder) %>% mutate(iteration=1:400) %>%
+  pivot_longer(-iteration, names_to = "component", values_to = "value") %>%
+    mutate(component = factor(component, levels = c("observed", "remainder", "season", "median_spans"))) %>%
+  ggplot(aes(x = iteration, y = value, color = component)) +
+  geom_line() +
+  facet_wrap(~component, scales = "free_y", ncol = 1) +
+  theme_minimal() +
+  labs(title = "Decomposed Time Series Components",
+       x = "Time",
+       y = "Value",
+       color = "Component")
+
+sample_list[[1]] %>%
+    time_decompose(clustering.coefficient, method = "twitter") %>%
+    select(observed, season, median_spans, remainder) %>% mutate(iteration=1:400) %>%
+  pivot_longer(-iteration, names_to = "component", values_to = "value") %>%
+    mutate(component = factor(component, levels = c("observed", "remainder", "season", "median_spans"))) %>%
+  ggplot(aes(x = iteration, y = value, color = component)) +
+  geom_line() +
+  facet_wrap(~component, scales = "free_y", ncol = 1) +
+  theme_minimal() +
+  labs(title = "Decomposed Time Series Components",
+       x = "Time",
+       y = "Value",
+       color = "Component")
 ```
 
 
-```{r}
-sample_1 %>%
-    time_decompose(`clustering coefficient`, method = "twitter") %>%
+##### Detection 
+```{r Detection comparison 1, eval=TRUE}
+sample_list[[1]] %>%
+    time_decompose(connectance, method = "stl") %>%
+    anomalize(remainder, method = "iqr") %>%
+    time_recompose() %>%  mutate(index = 1:400)  %>%
+   ggplot(aes(x =index, y = observed, color=anomaly)) +
+  # geom_smooth(aes(color = "Line"), se=FALSE) + 
+  geom_point(size = 2) +
+  geom_ribbon(aes(x = index, y = observed,ymin = recomposed_l1, ymax = recomposed_l2),inherit.aes = FALSE ,alpha = 0.2, fill = "gray1")+
+  geom_point(data=. %>% filter(anomaly == "Yes"), # Only plot circles for anomalies
+    aes(x = index, y = observed),
+    shape = 21, color = "brown2", fill = "transparent", size = 4, stroke = 1
+  ) +
+  scale_color_manual(values = c("No" = "gray45", "Yes" = "red", "Line" = "grey")) +
+  labs(
+    x = "Time",
+    y = "Observed",
+    color = "Anomaly"
+  ) +
+theme_linedraw()+
+  theme(legend.position = "bottom")
+  # geom_line() +
+  # geom_point(aes(color = anomaly)) +
+  # labs(
+  #   x = "Time",
+  #   y = "Observed",
+  #   color = "Anomaly"
+  # ) +
+  # facet_wrap(~recomposed_component, ncol = 3, scales = "free_y") +
+  # theme_minimal()
+  # #  plot_anomalies(time_recomposed = TRUE, ncol = 3, alpha_dots = 0.25)
+
+
+sample_list[[1]] %>%
+    time_decompose(connectance, method = "stl") %>%
+    anomalize(remainder, method = "gesd") %>%
+    time_recompose() %>%    
+   mutate(index = 1:400)  %>%
+   ggplot(aes(x =index, y = observed, color=anomaly)) +
+  # geom_smooth(aes(color = "Line"), se=FALSE) + 
+  geom_point(size = 2) +
+  geom_ribbon(aes(x = index, y = observed,ymin = recomposed_l1, ymax = recomposed_l2),inherit.aes = FALSE ,alpha = 0.2, fill = "gray1")+
+  geom_point(data=. %>% filter(anomaly == "Yes"), # Only plot circles for anomalies
+    aes(x = index, y = observed),
+    shape = 21, color = "brown2", fill = "transparent", size = 4, stroke = 1
+  ) +
+  scale_color_manual(values = c("No" = "gray45", "Yes" = "red")) +
+  labs(
+    x = "Time",
+    y = "Observed",
+    color = "Anomaly"
+  ) +
+theme_linedraw()+
+  theme(legend.position = "bottom")
+
+sample1_conn_anomalized_iqr<-sample_list[[1]] %>% time_decompose(connectance, method = "stl") %>% anomalize(remainder, method = "iqr")
+ which(sample1_conn_anomalized_iqr$anomaly=="Yes")
+ 
+sample1_conn_anomalized_gesd<-sample_list[[1]] %>% time_decompose(connectance, method = "stl") %>% anomalize(remainder, method = "gesd")
+ which(sample1_conn_anomalized_gesd$anomaly=="Yes")
+
+```
+
+
+```{r detection comparison 2: modu, eval=TRUE}
+# sample_list[[1]]%>%
+#     time_decompose(modularity, method = "stl") %>%
+#     anomalize(remainder, method = "iqr") %>%
+#     time_recompose() %>%    
+#     plot_anomalies(time_recomposed = TRUE, ncol = 3, alpha_dots = 0.25)
+# 
+# 
+#  sample_list[[1]]%>%
+#     time_decompose(modularity, method = "stl") %>%
+#     anomalize(remainder, method = "gesd") %>%
+#     time_recompose() %>%    
+#     plot_anomalies(time_recomposed = TRUE, ncol = 3, alpha_dots = 0.25)
+
+sample_list[[1]] %>%
+    time_decompose(modularity, method = "stl") %>%
+    anomalize(remainder, method = "iqr") %>%
+    time_recompose() %>%  mutate(index = 1:400)  %>%
+   ggplot(aes(x =index, y = observed, color=anomaly)) +
+  # geom_smooth(aes(color = "Line"), se=FALSE) + 
+  geom_point(size = 2) +
+  geom_ribbon(aes(x = index, y = observed,ymin = recomposed_l1, ymax = recomposed_l2),inherit.aes = FALSE ,alpha = 0.2, fill = "gray1")+
+  geom_point(data=. %>% filter(anomaly == "Yes"), # Only plot circles for anomalies
+    aes(x = index, y = observed),
+    shape = 21, color = "brown2", fill = "transparent", size = 4, stroke = 1
+  ) +
+  scale_color_manual(values = c("No" = "gray45", "Yes" = "red")) +
+  labs(
+    x = "Time",
+    y = "Observed",
+    color = "Anomaly"
+  ) +
+theme_linedraw()+
+  theme(legend.position = "bottom")
+
+sample_list[[1]] %>%
+    time_decompose(modularity, method = "stl") %>%
+    anomalize(remainder, method = "gesd") %>%
+    time_recompose() %>%    
+   mutate(index = 1:400)  %>%
+   ggplot(aes(x =index, y = observed, color=anomaly)) +
+  # geom_smooth(aes(color = "Line"), se=FALSE) + 
+  geom_point(size = 2) +
+  geom_ribbon(aes(x = index, y = observed,ymin = recomposed_l1, ymax = recomposed_l2),inherit.aes = FALSE ,alpha = 0.2, fill = "gray1")+
+  geom_point(data=. %>% filter(anomaly == "Yes"), # Only plot circles for anomalies
+    aes(x = index, y = observed),
+    shape = 21, color = "brown2", fill = "transparent", size = 4, stroke = 1
+  ) +
+  scale_color_manual(values = c("No" = "gray45", "Yes" = "red")) +
+  labs(
+    x = "Time",
+    y = "Observed",
+    color = "Anomaly"
+  ) +
+theme_linedraw()+
+  theme(legend.position = "bottom")
+ 
+sample1_modu_anomalized_iqr<-sample_list[[1]] %>% time_decompose(modularity, method = "stl") %>% anomalize(remainder, method = "iqr")
+ which(sample1_modu_anomalized_iqr$anomaly=="Yes")
+ 
+sample1_modu_anomalized_gesd<-sample_list[[1]] %>% time_decompose(modularity, method = "stl") %>% anomalize(remainder, method = "gesd")
+ which(sample1_modu_anomalized_gesd$anomaly=="Yes")
+```
+
+
+```{r comparison 3:cc}
+
+# sample_list[[1]] %>%
+#     time_decompose(clustering.coefficient, method = "stl") %>%
+#     anomalize(remainder, method = "iqr") %>%
+#     time_recompose() %>%    
+#     plot_anomalies(time_recomposed = TRUE, ncol = 3, alpha_dots = 0.25)
+# 
+# sample_list[[1]] %>%
+#     time_decompose(clustering.coefficient, method = "stl") %>%
+#     anomalize(remainder, method = "gesd") %>%
+#     time_recompose() %>%    
+#     plot_anomalies(time_recomposed = TRUE, ncol = 3, alpha_dots = 0.25)
+
+sample_list[[1]] %>%
+    time_decompose(clustering.coefficient, method = "stl") %>%
+    anomalize(remainder, method = "iqr") %>%
+    time_recompose() %>%  mutate(index = 1:400)  %>%
+   ggplot(aes(x =index, y = observed, color=anomaly)) +
+  # geom_smooth(aes(color = "Line"), se=FALSE) + 
+  geom_point(size = 2) +
+  geom_ribbon(aes(x = index, y = observed,ymin = recomposed_l1, ymax = recomposed_l2),inherit.aes = FALSE ,alpha = 0.2, fill = "gray1")+
+  geom_point(data=. %>% filter(anomaly == "Yes"), # Only plot circles for anomalies
+    aes(x = index, y = observed),
+    shape = 21, color = "brown2", fill = "transparent", size = 4, stroke = 1
+  ) +
+  scale_color_manual(values = c("No" = "gray45", "Yes" = "red")) +
+  labs(
+    x = "Time",
+    y = "Observed",
+    color = "Anomaly"
+  ) +
+theme_linedraw()+
+  theme(legend.position = "bottom")
+  
+
+
+sample_list[[1]] %>%
+    time_decompose(clustering.coefficient, method = "stl") %>%
+    anomalize(remainder, method = "gesd") %>%
+    time_recompose() %>%    
+   mutate(index = 1:400)  %>%
+   ggplot(aes(x =index, y = observed, color=anomaly)) +
+  # geom_smooth(aes(color = "Line"), se=FALSE) + 
+  geom_point(size = 2) +
+  geom_ribbon(aes(x = index, y = observed,ymin = recomposed_l1, ymax = recomposed_l2),inherit.aes = FALSE ,alpha = 0.2, fill = "gray1")+
+  geom_point(data=. %>% filter(anomaly == "Yes"), # Only plot circles for anomalies
+    aes(x = index, y = observed),
+    shape = 21, color = "brown2", fill = "transparent", size = 4, stroke = 1
+  ) +
+  scale_color_manual(values = c("No" = "gray45", "Yes" = "red")) +
+  labs(
+    x = "Time",
+    y = "Observed",
+    color = "Anomaly"
+  ) +
+theme_linedraw()+
+  theme(legend.position = "bottom")
+
+sample1_cc_anomalized_iqr<-sample_list[[1]] %>% time_decompose(clustering.coefficient, method = "stl") %>% anomalize(remainder, method = "iqr")
+ which(sample1_cc_anomalized_iqr$anomaly=="Yes")
+ 
+sample1_cc_anomalized_gesd<-sample_list[[1]] %>% time_decompose(clustering.coefficient, method = "stl") %>% anomalize(remainder, method = "gesd")
+ which(sample1_cc_anomalized_gesd$anomaly=="Yes")
+```
+
+
+```{r s6:conn}
+sample_list[[6]] %>%
+    time_decompose(connectance, method = "stl") %>%
+    anomalize(remainder, method = "iqr") %>%
+    time_recompose() %>%    
+    plot_anomalies(time_recomposed = TRUE, ncol = 3, alpha_dots = 0.25)
+
+
+sample_list[[6]] %>%
+    time_decompose(connectance, method = "stl") %>%
     anomalize(remainder, method = "gesd") %>%
     time_recompose() %>%    
     plot_anomalies(time_recomposed = TRUE, ncol = 3, alpha_dots = 0.25)
+
+sample6_conn_anomalized_iqr<-sample_list[[6]] %>% time_decompose(connectance, method = "stl") %>% anomalize(remainder, method = "iqr")
+ which(sample6_conn_anomalized_iqr$anomaly=="Yes")
+ 
+sample6_conn_anomalized_gesd<-sample_list[[6]] %>% time_decompose(connectance, method = "stl") %>% anomalize(remainder, method = "gesd")
+ which(sample6_conn_anomalized_gesd$anomaly=="Yes")
 ```
 
-```{r}
+```{r s6:modu}
+
+sample_list[[6]]%>%
+    time_decompose(modularity, method = "stl") %>%
+    anomalize(remainder, method = "iqr") %>%
+    time_recompose() %>%    
+    plot_anomalies(time_recomposed = TRUE, ncol = 3, alpha_dots = 0.25)
+
+
+ sample_list[[6]]%>%
+    time_decompose(modularity, method = "stl") %>%
+    anomalize(remainder, method = "gesd") %>%
+    time_recompose() %>%    
+    plot_anomalies(time_recomposed = TRUE, ncol = 3, alpha_dots = 0.25)
+ 
+ sample1_modu_anomalized_iqr<-sample_list[[6]] %>% time_decompose(modularity, method = "stl") %>% anomalize(remainder, method = "iqr")
+ which(sample1_modu_anomalized_iqr$anomaly=="Yes")
+ 
+sample1_modu_anomalized_gesd<-sample_list[[6]] %>% time_decompose(modularity, method = "stl") %>% anomalize(remainder, method = "gesd")
+ which(sample1_modu_anomalized_gesd$anomaly=="Yes")
+```
+
+
+```{r s6:cc}
+
+sample_list[[6]] %>%
+    time_decompose(clustering.coefficient, method = "stl") %>%
+    anomalize(remainder, method = "iqr") %>%
+    time_recompose() %>%    
+    plot_anomalies(time_recomposed = TRUE, ncol = 3, alpha_dots = 0.25)
+
+sample_list[[6]] %>%
+    time_decompose(clustering.coefficient, method = "stl") %>%
+    anomalize(remainder, method = "gesd") %>%
+    time_recompose() %>%    
+    plot_anomalies(time_recomposed = TRUE, ncol = 3, alpha_dots = 0.25)
+
+sample1_cc_anomalized_iqr<-sample_list[[6]] %>% time_decompose(clustering.coefficient, method = "stl") %>% anomalize(remainder, method = "iqr")
+ which(sample1_cc_anomalized_iqr$anomaly=="Yes")
+ 
+sample1_cc_anomalized_gesd<-sample_list[[6]] %>% time_decompose(clustering.coefficient, method = "stl") %>% anomalize(remainder, method = "gesd")
+ which(sample1_cc_anomalized_gesd$anomaly=="Yes")
+```
+
+
+
+### series Data transport
+
+
+```{r decomposed data storation}
 #sample_1_decomposed<-sample_1 %>% time_decompose(connectance, method = "twitter")
 
-sample_list_decomposed<-list()
+sample_list_decomposed_cc<-list()
+sample_list_decomposed_modu<-list()
+sample_list_decomposed_nested<-list()
+sample_list_decomposed_compart<-list()
 for (i in 1:10) {
   
-  sample_list_decomposed[[i]]<-sample_list[[i]] %>% time_decompose(connectance, method = "stl")
+ # sample_list_decomposed[[i]]<-sample_list[[i]] %>% time_decompose(connectance, method = "stl")
   
-  write_csv(sample_list_decomposed[[i]], paste("Connectance_sample",i,"_decomposed.csv", sep = ""))
+  #sample_list_decomposed_cc[[i]]<-sample_list[[i]] %>% time_decompose(clustering.coefficient, method = "stl")
+  sample_list_decomposed_modu[[i]]<-sample_list[[i]] %>% time_decompose(modularity, method = "stl")
+ # sample_list_decomposed_nested[[i]]<-sample_list[[i]] %>% time_decompose(nestedness,  method = "stl")
+  #sample_list_decomposed_compart[[i]]<-sample_list[[i]] %>% time_decompose(number.of.compartments, method = "stl")
+  
+  #write_csv(sample_list_decomposed[[i]], paste("Connectance_sample",i,"_decomposed.csv", sep = ""))
+ #write_csv(sample_list_decomposed_cc[[i]], paste("CC_sample",i,"_decomposed.csv", sep = ""))
+  write_csv(sample_list_decomposed_modu[[i]], paste("Modu_sample",i,"_decomposed.csv", sep = ""))
+  #write_csv(sample_list_decomposed_nested[[i]], paste("Nest_sample",i,"_decomposed.csv", sep = ""))
+ # write_csv(sample_list_decomposed_compart[[i]], paste("#Compartment_sample",i,"_decomposed.csv", sep = ""))
+  
+
 }
 
 ```
+
 
 
