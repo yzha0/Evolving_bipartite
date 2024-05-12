@@ -18,6 +18,6 @@ Temporal Outlier Factor (TOF)[1] to these time-series data. This method automate
 process of identifying the unique points/periods where qualitative changes happen, so that
 we can compare statistics in the same network.
 
-The full thesis documentation can be accessed at:(https://scarab.bates.edu/cgi/viewcontent.cgi?article=1521&context=honorstheses)
+The full thesis documentation can be accessed at: https://scarab.bates.edu/cgi/viewcontent.cgi?article=1521&context=honorstheses
 
 **Advisor: Dr. Diaz Eaton**
