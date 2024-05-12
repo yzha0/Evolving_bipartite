@@ -1,0 +1,273 @@
+---
+title: "ACN_Dynamic_Visuals"
+author: "Eric Zhao"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+### Dynamic Network Visualization
+```{r}
+library(ndtv)
+library(network)
+library(networkDynamic)
+library(igraph)
+```
+
+
+
+
+
+```{r monopartite projection level 1}
+# Determine the maximum number of nodes across all matrices
+sample_index=5
+mono_project_list1<-sapply(ts_list[[sample_index]], function(m) {result<- m %*% t(m)
+diag(result)<-0 
+list(result)})
+
+max_nodes <- max(sapply(ts_list[[sample_index]], function(m) max(nrow(m),ncol(m))))
+
+# 
+# # Initialize the network with all possible nodes, initially deactivated
+# net_dyn <- network.initialize(max_nodes, directed = FALSE)
+# Initialize the network with all possible nodes, initially deactivated
+net_dyn_1 <- network.initialize(max_nodes, directed = FALSE)
+deactivate.vertices(net_dyn_1, onset = 0, terminus = Inf, v = 1:max_nodes)
+prev_mat <- matrix(0, nrow = max_nodes, ncol = max_nodes)
+
+
+#prev_mat <- matrix(0, nrow = max_nodes, ncol = max_nodes)  # Placeholder for the previous matrix
+for (time in 1:length(mono_project_list1)) {
+  mat <- matrix(0, nrow = max_nodes, ncol = max_nodes)
+  mat_dim <- dim(mono_project_list1[[time]])
+  mat[1:mat_dim[1], 1:mat_dim[2]] <- mono_project_list1[[time]]
+  
+  active_nodes <- which(rowSums(mat) > 0 | colSums(mat) > 0)
+  #current_active_edges <- which(mat > 0, arr.ind = TRUE)
+  
+  # Activate current nodes
+  #activate.vertices(net_dyn_1, onset = time, terminus = Inf, v = current_active_nodes)
+  
+  # Activate current edges
+   for (node in 1:max_nodes) {
+    if (any(mat[node, ] != 0) || any(mat[, node] != 0)) {
+      activate.vertices(net_dyn_1, onset = time, terminus = Inf, v = node)
+    } else if (any(prev_mat[node, ] != 0) || any(prev_mat[, node] != 0)) {
+            deactivate.vertices(net_dyn_1, onset = time, terminus = Inf, v = node, deactivate.edges = TRUE)
+        }
+  }
+
+  # Update the network edges based on the current matrix
+  for (i in 1:nrow(mat)) {
+    for (j in 1:ncol(mat)) {
+      if (mat[i, j] != 0 &&prev_mat[i, j] == 0) {
+          add.edge(net_dyn_1, tail = i, head = j)
+          network::set.edge.attribute(net_dyn_1, "weight", mat[i, j], e =get.edgeIDs(net_dyn_1, v=i, alter = j))
+          activate.edges(net_dyn_1, onset = time, terminus = Inf, e = get.edgeIDs(net_dyn_1, v=i, alter = j))
+          
+        }
+  
+      else if (prev_mat[i, j] != 0 && mat[i, j]==0) {  # Edge existed before but not now
+                # Deactivate the edge
+                deactivate.edges(net_dyn_1, onset = time, terminus = Inf, e = get.edgeIDs(net_dyn_1, v=i, alter = j))
+            }
+    }
+  }
+  inactive_nodes <- setdiff(1:max_nodes, active_nodes)
+  if (length(inactive_nodes) > 0) {
+    deactivate.vertices(net_dyn_1, onset = time, terminus = Inf, v = inactive_nodes, deactivate.edges = TRUE)
+  }
+
+   prev_mat <- mat
+}
+```
+
+```{r level 2}
+# Determine the maximum number of nodes across all matrices
+mono_project_list2<-sapply(ts_list[[sample_index]], function(m) {result<-t(m) %*% m 
+diag(result)<-0 
+list(result)})
+#mono_project_list2<-sapply(mono_project_list2, diag(m)<-0)
+max_nodes <- max(sapply(ts_list[[sample_index]], function(m) max(ncol(m))))
+
+
+# Initialize the network with all possible nodes, initially deactivated
+net_dyn_2 <- network.initialize(max_nodes, directed = FALSE)
+deactivate.vertices(net_dyn_2, onset = 0, terminus = Inf, v = 1:max_nodes)
+prev_mat <- matrix(0, nrow = max_nodes, ncol = max_nodes)
+
+
+#prev_mat <- matrix(0, nrow = max_nodes, ncol = max_nodes)  # Placeholder for the previous matrix
+for (time in 1:length(mono_project_list2)) {
+  mat <- matrix(0, nrow = max_nodes, ncol = max_nodes)
+  mat_dim <- dim(mono_project_list2[[time]])
+  mat[1:mat_dim[1], 1:mat_dim[2]] <- mono_project_list2[[time]]
+  
+  active_nodes <- which(rowSums(mat) > 0 | colSums(mat) > 0)
+  #current_active_edges <- which(mat > 0, arr.ind = TRUE)
+  
+  # Activate current nodes
+   for (node in 1:max_nodes) {
+    if (any(mat[node, ] != 0) || any(mat[, node] != 0)) {
+      activate.vertices(net_dyn_2, onset = time, terminus = Inf, v = node)
+    } else if (any(prev_mat[node, ] != 0) || any(prev_mat[, node] != 0)) {
+            deactivate.vertices(net_dyn_2, onset = time, terminus = Inf, v = node, deactivate.edges = TRUE)
+        }
+  }
+
+  # Update the network edges based on the current matrix
+  for (i in 1:nrow(mat)) {
+    for (j in 1:ncol(mat)) {
+      if (mat[i, j] != 0 && prev_mat[i, j] == 0) {
+        
+          add.edge(net_dyn_2, tail = i, head = j)
+          network::set.edge.attribute(net_dyn_2, "weight", mat[i, j], e =get.edgeIDs(net_dyn_2, v=i, alter = j))
+          activate.edges(net_dyn_2, onset = time, terminus = Inf, e = get.edgeIDs(net_dyn_2, v=i, alter = j))
+          
+      } 
+      else if (prev_mat[i, j] != 0 && mat[i, j]==0) {  # Edge existed before but not now
+                # Deactivate the edge
+                deactivate.edges(net_dyn_2, onset = time, terminus = Inf, e = get.edgeIDs(net_dyn_2, v=i, alter = j))
+            }
+    }
+  }
+  inactive_nodes <- setdiff(1:max_nodes, active_nodes)
+  if (length(inactive_nodes) > 0) {
+    deactivate.vertices(net_dyn_2, onset = time, terminus = Inf, v = inactive_nodes, deactivate.edges = TRUE)
+  }
+
+   prev_mat <- mat
+}
+```
+
+
+
+```{r Bipartite versions level indicating by color attribute}
+# Determine the maximum number of nodes across all matrices
+max_nodes <- max(sapply(ts_list[[sample_index]], function(m) sum(max(nrow(m)), max(ncol(m)))))
+max_rows<- max(sapply(ts_list[[sample_index]], function(m) max(nrow(m))))
+max_cols<-max(sapply(ts_list[[sample_index]], function(m) max(ncol(m))))
+# 
+# # Initialize the network with all possible nodes, initially deactivated
+# net_dyn <- network.initialize(max_nodes, directed = FALSE)
+# Initialize the network with all possible nodes, initially deactivated
+net_dyn_bi <- network.initialize(max_nodes, directed = FALSE)
+# Set attributes to distinguish the two sets
+# Assume 1 for rows (set A) and 2 for columns (set B)
+node_types <- c(rep(1, max_rows), rep(2, max_cols))
+network::set.vertex.attribute(net_dyn_bi, "Level", node_types)
+
+deactivate.vertices(net_dyn_bi, onset = 0, terminus = Inf, v = 1:max_nodes)
+
+prev_mat <- matrix(0, nrow = max_rows, ncol = max_cols)
+
+
+#prev_mat <- matrix(0, nrow = max_nodes, ncol = max_nodes)  # Placeholder for the previous matrix
+for (time in 1:length(ts_list[[sample_index]])) {
+  mat <- matrix(0, nrow = max_rows, ncol = max_cols)
+  mat_dim <- dim(ts_list[[5]][[time]])
+  mat[1:mat_dim[1], 1:mat_dim[2]] <- ts_list[[sample_index]][[time]]
+  
+  active_nodes <- c(which(rowSums(mat)>0), c(which(colSums(mat)>0)+max_rows)) #which(rowSums(mat) > 0 | colSums(mat) > 0)
+  #current_active_edges <- which(mat > 0, arr.ind = TRUE)
+  
+  # Activate current nodes
+  #activate.vertices(net_dyn, onset = time, terminus = Inf, v = current_active_nodes)
+  Level_values<-network::get.vertex.attribute(net_dyn_bi, "Level")
+  # Activate current edges
+   for (node in 1:max_rows) {
+    if (any(mat[node, ] != 0) ) {
+      activate.vertices(net_dyn_bi, onset = time, terminus = Inf, v = node)
+    } else if (any(prev_mat[node, ] != 0) && any(mat[node,]==0)) {
+            deactivate.vertices(net_dyn_bi, onset = time, terminus = Inf, v = node, deactivate.edges = TRUE)
+        }
+   }
+  
+  for (node in 1:max_cols) {                
+    if (any(mat[, node] != 0)) {
+      activate.vertices(net_dyn_bi, onset = time, terminus = Inf, v = node+max_rows)
+    } else if (any(prev_mat[, node] != 0) && any(mat[node,]==0)) {
+            deactivate.vertices(net_dyn_bi, onset = time, terminus = Inf, v = node+max_rows, deactivate.edges = TRUE)
+        }
+   }
+  
+
+  # Update the network edges based on the current matrix
+  for (i in 1:nrow(mat)) {
+    for (j in 1:ncol(mat)) {
+      if (mat[i, j] != 0 && prev_mat[i, j] == 0) {
+          add.edge(net_dyn_bi, tail = i, head = j+max_rows)
+          activate.edges(net_dyn_bi, onset = time, terminus = Inf, e = get.edgeIDs(net_dyn_bi, v=i, alter = j+max_rows))
+        }
+    
+      else if (prev_mat[i, j] != 0 && mat[i, j]==0) {  # Edge existed before but not now
+                # Deactivate the edge
+                deactivate.edges(net_dyn_bi, onset = time, terminus = Inf, e = get.edgeIDs(net_dyn_bi, v=i, alter = j+max_rows))
+            }
+    }
+  }
+  inactive_nodes <- setdiff(1:max_nodes, active_nodes)
+  if (length(inactive_nodes) > 0) {
+    deactivate.vertices(net_dyn_bi, onset = time, terminus = Inf, v = inactive_nodes, deactivate.edges = TRUE)
+  }
+
+   prev_mat <- mat
+}
+
+```
+
+```{r filmstrip}
+#mono-1
+filmstrip(net_dyn_1, displaylabel=FALSE,vertex.cex=1.5, edge.lwd="weight",slice.par = list(start=1, end=400, interval=49, aggregate.dur=5, rule="latest"))
+
+#mono-2
+filmstrip(net_dyn_2, displaylabel=FALSE,vertex.cex=1.5, edge.lwd="weight",slice.par = list(start=1, end=400, interval=49, aggregate.dur=5, rule="latest"))
+
+#bipartite
+filmstrip(net_dyn_bi, displaylabel=FALSE,vertex.cex=1.5, vertex.col="Level",slice.par = list(start=1, end=400, interval=2, aggregate.dur=1, rule="latest"))
+```
+
+```{r timePrism, warning=FALSE}
+#mono-1
+timePrism(net_dyn_1, at=c(250, 275, 300),
+          angle=40,
+          spline.v=c(6, 7, 8, 9, 10),  # hilite the infected 
+          spline.col='red',
+          spline.lwd=2,
+          box=TRUE,
+          planes=TRUE,displaylabels=TRUE,
+          label.cex=0.5, edge.lwd="weight")
+
+#mono-2
+
+
+#bipartite
+timePrism(net_dyn_bi, at=c(250, 275, 300),
+          angle=40,
+          spline.v=c(36, 37, 38, 39, 40),  # hilite the infected 
+          spline.col='red',
+          spline.lwd=2,
+          box=TRUE,
+          planes=TRUE,displaylabels=TRUE,
+          label.cex=0.5, vertex.col="Level")
+```
+
+```{r Animation}
+#mono-1
+render.d3movie(net_dyn_1,"net_proj1.html", edge.lwd="weight",
+                           main='Projection of level 1', output.mode = "HTML")
+
+#mono-2
+render.d3movie(net_dyn_2,"net_proj2.html", edge.lwd="weight",
+                           main='Projection of level 2', output.mode = "HTML")
+
+#bipartite 
+render.d3movie(net_dyn_bi,"net_bi.html", vertex.col="Level", main='MDSJ layout', output.mode = "HTML")
+```
+
+
