@@ -1,7 +1,8 @@
 
-# Math Honor Thesis Dynamic Bipartite Networks: Detecting and visualizing structural change
+# Math Honor Thesis
+## Dynamic Bipartite Networks: Detecting and visualizing structural change
 
-## Abstract 
+### Abstract 
 In exploring the evolution of networks, many researchers have focused on analyzing dynamics
 of unipartite network. However, bipartite network structures are also essential in
 understanding complex co-evolutionary processes. A significant proportion of foundational
