@@ -1,5 +1,5 @@
 
-# Math Honor Thesis:
+# Math Honor Thesis
 ## Dynamic Bipartite Networks: Detecting and visualizing structural change
 
 ### Abstract 
